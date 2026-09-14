@@ -30,8 +30,8 @@ named as such rather than assumed.
 
 ## B. Every file and configuration changed
 
-Work landed in six commits on top of the two original build commits (`0e5099d`, `2dbf7f4`);
-the phases below are the production brief's phases.
+This work landed across a series of commits on top of the two original build commits (`0e5099d`,
+`2dbf7f4`); the phases below are the production brief's phases.
 
 **Phase 1 (audit) — no code changes.** Findings drove everything that follows.
 
@@ -93,10 +93,10 @@ Only the items in this section may be treated as verified. Everything else is li
 | `npm test` | **API 78/78 pass, 0 fail** · **mobile 23/23 pass, 0 fail** |
 | `npm run build:web` | `Exported: dist` — 44 HTML files exported for the app's 37 screens |
 
-**Continuous integration is green on the latest pushed commits** (`c837636` run 34829218128 and
-`c11a3f3` run 34829373608): a clean `npm ci` on a fresh GitHub runner, then typecheck → tests → web
-build all succeeded, which also proves `package-lock.json` is consistent (the same install path EAS
-uses).
+**Continuous integration has been green on every commit of this pass** (`c837636` run 34829218128,
+`c11a3f3` run 34829373608, `e22bb18` run 34830252251): a clean `npm ci` on a fresh GitHub runner,
+then typecheck → tests → web build all succeeded, which also proves `package-lock.json` is
+consistent (the same install path EAS uses).
 
 Per-file test counts (all passing):
 
