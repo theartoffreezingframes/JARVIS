@@ -18,7 +18,7 @@ named as such rather than assumed.
 | --- | --- |
 | **Mobile app** | React Native via **Expo SDK 57** (`expo` 57.0.22), **expo-router** 57.0.21 (file-based routes), React 19.2.3, RN 0.86.3, Reanimated 4.5.1, TypeScript 6.0.3, New Architecture enabled. 39 route files (37 screens + 2 layouts). Secure token storage (`expo-secure-store`), local notifications (`expo-notifications`), browser OAuth (`expo-web-browser`), PKCE helpers (`expo-crypto`). Web export is a companion client, not a target platform. |
 | **Backend** | Node 20+ (verified on 22), TypeScript executed by `tsx`, **Fastify 5.12.4**, zod 4 validation, `@fastify/cookie`, `@fastify/cors`, `@fastify/websocket`, nodemailer 10, **jose 6** (Google ID-token verification). Layering: `routes → services → repo → db` plus `lib/` and `realtime/`. |
-| **Database** | **SQLite** via `better-sqlite3` 13 with **WAL** and foreign keys, one file (`JARVIS_DB_FILE`, default `<JARVIS_DATA_DIR>/jarvis.sqlite`), ~30 tables, idempotent additive migrations. Per-user `change_seq` gives incremental offline sync without a change-log table. |
+| **Database** | **SQLite** via `better-sqlite3` 13 with **WAL** and foreign keys, one file (`JARVIS_DB_FILE`, default `<JARVIS_DATA_DIR>/jarvis.sqlite`), 27 tables, idempotent additive migrations. Per-user `change_seq` gives incremental offline sync without a change-log table. |
 | **API surface** | REST under `/api` plus a WebSocket at `/realtime`. Session auth: `Authorization: Bearer` (query-string tokens are **not** accepted by REST). |
 | **Authentication** | First-party. scrypt password hashing (N=16384, r=8, p=1, per-user salt); HS256 JWT access tokens (~2 h) carrying a **session id**; opaque refresh tokens (60 days) stored SHA-256-hashed, rotated on use, revoked per session with a reason (`rotated`/`logout`/`password`/`admin`). Session validity is checked on every request and every socket handshake. **Google Sign-In** is optional and disabled until configured. |
 | **Realtime** | Single server-authoritative hub. The Gang Timer clock lives in `gang_sessions.clock_anchor_at` / `clock_paused_ms`; sockets carry **state changes only** (join/leave/state/control/reaction/presence), never per-second ticks. Clients derive the countdown from the server anchor and fall back to 5 s polling. |
@@ -30,7 +30,8 @@ named as such rather than assumed.
 
 ## B. Every file and configuration changed
 
-Work landed in four commits; the phases below are the production brief's phases.
+Work landed in six commits on top of the two original build commits (`0e5099d`, `2dbf7f4`);
+the phases below are the production brief's phases.
 
 **Phase 1 (audit) — no code changes.** Findings drove everything that follows.
 
@@ -64,7 +65,7 @@ Work landed in four commits; the phases below are the production brief's phases.
 | Offline queue per account | `apps/mobile/src/lib/queue-scope.ts` (new), `apps/mobile/src/lib/offline.ts`, `apps/mobile/src/lib/auth.tsx`, `apps/mobile/tests/queue-scope.test.ts` (new) |
 | Release gates | `docs/RELEASE.md` (§6 download before publishing, §9 checklist gates on `docs/DEVICE-TESTS.md`), `.env.example` (`EXPO_PUBLIC_API_URL`) |
 
-**Phase 14/15 (this pass — the commit that contains this report)**
+**Phase 14/15 (`c837636` and `c11a3f3` — this pass, including the report itself)**
 
 | Area | Files |
 | --- | --- |
@@ -90,11 +91,12 @@ Only the items in this section may be treated as verified. Everything else is li
 | --- | --- |
 | `npm run typecheck` (shared → api → mobile) | **0 errors** |
 | `npm test` | **API 78/78 pass, 0 fail** · **mobile 23/23 pass, 0 fail** |
-| `npm run build:web` | `Exported: dist` (all 39 routes built) |
+| `npm run build:web` | `Exported: dist` — 44 HTML files exported for the app's 37 screens |
 
-**Continuous integration is green on the pushed commit** (`c837636`, run 34829218128): a clean
-`npm ci` on a fresh GitHub runner, then typecheck → tests → web build all succeeded, which also proves
-`package-lock.json` is consistent (the same install path EAS uses).
+**Continuous integration is green on the latest pushed commits** (`c837636` run 34829218128 and
+`c11a3f3` run 34829373608): a clean `npm ci` on a fresh GitHub runner, then typecheck → tests → web
+build all succeeded, which also proves `package-lock.json` is consistent (the same install path EAS
+uses).
 
 Per-file test counts (all passing):
 
@@ -335,7 +337,8 @@ prints credentials.
 5. Permission prompts appear in context: notifications when you first create an account or set a
    reminder. Until granted, the app says reminders cannot be shown (it does not pretend otherwise).
 6. Optional: verify the file with `sha256sum app-release.apk` against the published checksum.
-7. Minimum Android version: 7.0 (API 24). The APK is signed; updates require the same signing key.
+7. Minimum Android version: 7.0 (API 24) — Expo's Gradle plugin default (`minSdk` 24) since
+   `app.json` sets no override. The APK is signed; updates require the same signing key.
 
 ---
 
