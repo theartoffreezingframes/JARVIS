@@ -92,6 +92,10 @@ Only the items in this section may be treated as verified. Everything else is li
 | `npm test` | **API 78/78 pass, 0 fail** · **mobile 23/23 pass, 0 fail** |
 | `npm run build:web` | `Exported: dist` (all 39 routes built) |
 
+**Continuous integration is green on the pushed commit** (`c837636`, run 34829218128): a clean
+`npm ci` on a fresh GitHub runner, then typecheck → tests → web build all succeeded, which also proves
+`package-lock.json` is consistent (the same install path EAS uses).
+
 Per-file test counts (all passing):
 
 | Suite | Tests | What it proves |
