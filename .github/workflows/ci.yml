@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_apk:
+        description: 'Also build a preview APK (requires the EXPO_TOKEN secret and an API_URL variable)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, tests and web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (shared, api, mobile)
+        run: npm run typecheck
+
+      - name: Test (api + mobile)
+        run: npm test
+
+      - name: Build the web client
+        run: npm run build:web
+        env:
+          # Inlined at build time; any valid origin is enough for a compile check.
+          EXPO_PUBLIC_API_URL: https://ci.invalid
+
+  apk:
+    name: Preview APK (manual)
+    # Only on explicit request, so ordinary pushes never depend on EAS credentials.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_apk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the required configuration
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Set the EXPO_TOKEN repository secret (expo.dev → Account settings → Access tokens)."
+            exit 1
+          fi
+          if [ -z "$API_URL" ]; then
+            echo "::error::Set the API_URL repository variable to your HTTPS API origin (e.g. https://api.example.com)."
+            exit 1
+          fi
+
+      - name: Build the preview APK with EAS
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_API_URL: ${{ vars.API_URL }}
+        run: |
+          npx eas-cli@latest build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --json > build.json
+          node -e "const b=require('./build.json');const url=b[0].artifacts.buildUrl;console.log('APK artifact: '+url);require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,'APK artifact: '+url+'\n\n');require('fs').writeFileSync('apk-url.txt',url)"
+
+      - name: Download the APK
+        working-directory: apps/mobile
+        run: |
+          curl -L --fail -o jarvis-preview.apk "$(cat apk-url.txt)"
+          sha256sum jarvis-preview.apk > jarvis-preview.apk.sha256
+
+      - name: Upload the APK as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-preview-apk
+          path: |
+            apps/mobile/jarvis-preview.apk
+            apps/mobile/jarvis-preview.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
