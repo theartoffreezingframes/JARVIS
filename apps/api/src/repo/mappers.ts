@@ -51,6 +51,9 @@ export function mapUser(row: UserRow): User {
     timezoneOffsetMinutes: row.tz_offset_minutes,
     weekStartsOn: row.week_starts_on === 1 ? 1 : 0,
     use24Hour: bool(row.use_24_hour),
+    emailVerified: bool(row.email_verified),
+    hasPassword: row.has_password !== 0,
+    hasGoogle: Boolean(row.google_sub),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -9,6 +9,7 @@ export type ErrorCode =
   | 'conflict'
   | 'rate_limited'
   | 'payload_too_large'
+  | 'unavailable'
   | 'internal';
 
 const STATUS: Record<ErrorCode, number> = {
@@ -19,6 +20,7 @@ const STATUS: Record<ErrorCode, number> = {
   conflict: 409,
   rate_limited: 429,
   payload_too_large: 413,
+  unavailable: 503,
   internal: 500,
 };
 
@@ -53,6 +55,11 @@ export class AppError extends Error {
 
   static conflict(message: string, details?: unknown): AppError {
     return new AppError('conflict', message, details);
+  }
+
+  /** A capability this deployment has not been configured for (e.g. Google Sign-In). */
+  static unavailable(message: string, details?: unknown): AppError {
+    return new AppError('unavailable', message, details);
   }
 }
 

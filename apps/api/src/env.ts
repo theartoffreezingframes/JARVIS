@@ -176,6 +176,19 @@ const email: EmailConfig = {
 /*  Push notifications                                                        */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Google Sign-In is optional. It is *only* enabled when at least one OAuth
+ * client id is configured — an unconfigured deployment answers
+ * `POST /api/auth/google` with 503 and the app hides the button, so a user can
+ * never be shown a sign-in method that cannot work.
+ *
+ * Client ids are public identifiers (they are compiled into the app), not
+ * secrets: the client secret is never used by this server and never stored here.
+ */
+const google = {
+  clientIds: parseList(process.env.JARVIS_GOOGLE_CLIENT_IDS),
+};
+
 const push = {
   /**
    * Remote push uses Expo's push service, which needs no secret of its own for
@@ -219,6 +232,7 @@ export const config = {
   trustProxy: process.env.JARVIS_TRUST_PROXY === 'true',
   email,
   push,
+  google,
   /**
    * Test suites sign up far more accounts from one IP than a real client ever
    * would, so they raise the multiplier. Production always uses 1 — the shipped
@@ -235,6 +249,7 @@ export function capabilityReport(): Record<string, string | boolean> {
     email: email.provider,
     emailFrom: email.provider === 'none' ? false : Boolean(email.from),
     push: push.enabled,
+    google: google.clientIds.length ? `${google.clientIds.length} client id(s)` : 'not-configured',
     cors: allowedOriginMode(),
     https: config.publicUrl.startsWith('https://'),
     trustProxy: config.trustProxy,

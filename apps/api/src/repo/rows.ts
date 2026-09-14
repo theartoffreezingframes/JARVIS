@@ -8,6 +8,8 @@ export interface UserRow {
   avatar_url: string | null;
   bio: string | null;
   password_hash: string;
+  google_sub: string | null;
+  has_password: number;
   timezone: string;
   tz_offset_minutes: number;
   week_starts_on: number;

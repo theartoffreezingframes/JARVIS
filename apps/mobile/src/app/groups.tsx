@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, View } from 'react-native';
-import { Avatar, Badge, Button, Card, Chip, EmptyState, Field, Input, LoadingBlock, Row, Screen, SectionHeader, Segmented, Sheet, Stack, SwitchRow, Type } from '../components/ui';
+import { Avatar, Badge, Button, Card, Chip, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Row, Screen, SectionHeader, Segmented, Sheet, Stack, SwitchRow, Type } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useFriends, useGangMutations, useGangSessions, useGroupMutations, useGroups } from '../hooks/useSocial';
 import { radius, spacing, usePalette } from '../lib/theme';
@@ -18,7 +18,7 @@ export default function GroupsScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { user } = useAuth();
-  const { groups, friendCount, isLoading, refetch } = useGroups();
+  const { groups, friendCount, isLoading, error: groupsError, refetch } = useGroups();
   const { active, scheduled, history } = useGangSessions();
   const { friends, incoming, outgoing, refetch: refetchFriends } = useFriends();
   const groupMutations = useGroupMutations();
@@ -75,7 +75,10 @@ export default function GroupsScreen() {
       {tab === 'groups' ? (
         <>
           {isLoading && groups.length === 0 ? <LoadingBlock label="Loading groups" /> : null}
-          {!isLoading && groups.length === 0 ? (
+          {groupsError && !isLoading && groups.length === 0 ? (
+            <ErrorBlock message="Your groups could not be loaded." onRetry={() => void refetch()} />
+          ) : null}
+          {!isLoading && !groupsError && groups.length === 0 ? (
             <EmptyState
               icon="people-outline"
               title="Create a focus group with your friends"

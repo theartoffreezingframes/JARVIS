@@ -27,6 +27,24 @@ export function findUsersByUsernameLike(term: string, excludeUserId: string, db:
   );
 }
 
+export function findUserByGoogleSub(googleSub: string, db: Db = getDb()): UserRow | undefined {
+  return one<UserRow>('SELECT * FROM users WHERE google_sub = ? AND deleted_at IS NULL', [googleSub], db);
+}
+
+/** Links a Google subject to an existing account that proved the same email. */
+export function linkGoogleSub(userId: string, googleSub: string, db: Db = getDb()): void {
+  run('UPDATE users SET google_sub = ?, email_verified = 1, updated_at = ? WHERE id = ?', [
+    googleSub,
+    Date.now(),
+    userId,
+  ], db);
+}
+
+/** Records that an account (created through Google) now has its own password. */
+export function recordPasswordSet(userId: string, db: Db = getDb()): void {
+  run('UPDATE users SET has_password = 1, updated_at = ? WHERE id = ?', [Date.now(), userId], db);
+}
+
 export interface CreateUserInput {
   email: string;
   username: string;
@@ -34,23 +52,35 @@ export interface CreateUserInput {
   passwordHash: string;
   timezone: string;
   timezoneOffsetMinutes: number;
+  /** Set for accounts created through Google Sign-In. */
+  googleSub?: string | null;
+  /** False for Google-only accounts until they choose a password. Defaults to true. */
+  hasPassword?: boolean;
+  /** True when the email address was verified by an identity provider. */
+  emailVerified?: boolean;
+  avatarUrl?: string | null;
 }
 
 export function createUser(input: CreateUserInput, db: Db = getDb()): UserRow {
   const now = Date.now();
   const id = newId('usr');
   run(
-    `INSERT INTO users (id, email, username, name, password_hash, timezone, tz_offset_minutes,
-                        week_starts_on, use_24_hour, email_verified, change_seq, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 0, ?, ?)`,
+    `INSERT INTO users (id, email, username, name, password_hash, avatar_url, timezone, tz_offset_minutes,
+                        week_starts_on, use_24_hour, email_verified, google_sub, has_password,
+                        change_seq, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, 0, ?, ?)`,
     [
       id,
       input.email.toLowerCase(),
       input.username.toLowerCase(),
       input.name,
       input.passwordHash,
+      input.avatarUrl ?? null,
       input.timezone,
       input.timezoneOffsetMinutes,
+      input.emailVerified ? 1 : 0,
+      input.googleSub ?? null,
+      input.hasPassword === false ? 0 : 1,
       now,
       now,
     ],

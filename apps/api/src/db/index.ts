@@ -40,8 +40,14 @@ export function migrate(db: Db = getDb()): void {
   db.exec(SCHEMA_SQL);
   addColumnIfMissing(db, 'refresh_tokens', 'sid', 'TEXT');
   addColumnIfMissing(db, 'refresh_tokens', 'revoked_reason', 'TEXT');
+  addColumnIfMissing(db, 'notifications', 'dismissed_at', 'INTEGER');
+  addColumnIfMissing(db, 'users', 'google_sub', 'TEXT');
+  addColumnIfMissing(db, 'users', 'has_password', 'INTEGER NOT NULL DEFAULT 1');
   // Indexes over columns added above are created only once those columns exist.
   db.exec('CREATE INDEX IF NOT EXISTS idx_refresh_sid ON refresh_tokens(sid)');
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL',
+  );
 }
 
 function addColumnIfMissing(db: Db, table: string, column: string, definition: string): void {

@@ -105,6 +105,8 @@ matter most:
 | `JARVIS_ALLOWED_ORIGINS` | Exact web origins allowed to call the API from a browser. Empty = same-origin only. |
 | `JARVIS_TRUST_PROXY=true` | Only with a trusted reverse proxy in front — otherwise IP-based rate limiting sees the proxy. |
 | `JARVIS_EMAIL_*` | Without these, password-reset mail cannot be delivered (the API still answers identically). |
+| `JARVIS_GOOGLE_CLIENT_IDS` | Optional. Comma-separated Google OAuth client ids (public identifiers). Empty = `POST /api/auth/google` returns `503` and the app hides the Google button. Client ids are bound to the app's package name and signing certificate, so a build signed with an unregistered SHA-1 fails at Google's end, not here. |
+| `JARVIS_PUSH_ENABLED` / `JARVIS_PUSH_*` | Optional. Remote push through Expo's relay; the server holds no Firebase credential (that lives in EAS, see RELEASE.md). |
 
 Generate a secret:
 

@@ -1,4 +1,14 @@
-/** Settings → Change password. Revokes sessions on other devices by design. */
+/**
+ * Settings → Password.
+ *
+ * Accounts that already have a password: changing it signs out every other
+ * device (this one stays signed in).
+ *
+ * Accounts created through Google Sign-In have no password yet — they set a
+ * first one here, proved by the live session rather than by a current password
+ * they never had. The server enforces the distinction; this screen only
+ * reflects it.
+ */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +19,8 @@ import { spacing, usePalette } from '../../lib/theme';
 export default function PasswordSettingsScreen() {
   const palette = usePalette();
   const router = useRouter();
-  const { changePassword } = useAuth();
+  const { changePassword, user } = useAuth();
+  const firstPassword = user?.hasPassword === false;
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -32,18 +43,22 @@ export default function PasswordSettingsScreen() {
 
       <Stack gap={2}>
         <Type variant="title" accessibilityRole="header">
-          Change password
+          {firstPassword ? 'Set a password' : 'Change password'}
         </Type>
         <Type variant="caption" color={palette.textMuted}>
-          Changing your password signs out every other device. This one stays signed in.
+          {firstPassword
+            ? 'You signed in with Google, so this account has no password yet. Setting one lets you sign in with your email as well.'
+            : 'Changing your password signs out every other device. This one stays signed in.'}
         </Type>
       </Stack>
 
       <Card>
         <Stack gap={spacing.md}>
-          <Field label="Current password">
-            <Input value={current} onChangeText={setCurrent} secureTextEntry autoCapitalize="none" />
-          </Field>
+          {firstPassword ? null : (
+            <Field label="Current password">
+              <Input value={current} onChangeText={setCurrent} secureTextEntry autoCapitalize="none" />
+            </Field>
+          )}
           <Field label="New password" error={problem}>
             <Input value={next} onChangeText={setNext} secureTextEntry autoCapitalize="none" />
           </Field>
@@ -67,16 +82,20 @@ export default function PasswordSettingsScreen() {
             </Row>
           ) : null}
           <Button
-            label="Update password"
+            label={firstPassword ? 'Set password' : 'Update password'}
             loading={busy}
-            disabled={!current || !next || !confirm || Boolean(problem)}
+            disabled={(!firstPassword && !current) || !next || !confirm || Boolean(problem)}
             onPress={async () => {
               setBusy(true);
               setError(null);
               setMessage(null);
               try {
-                await changePassword(current, next);
-                setMessage('Password updated. Other devices have been signed out.');
+                await changePassword(firstPassword ? undefined : current, next);
+                setMessage(
+                  firstPassword
+                    ? 'Password set. You can now sign in with your email and password.'
+                    : 'Password updated. Other devices have been signed out.',
+                );
                 setCurrent('');
                 setNext('');
                 setConfirm('');

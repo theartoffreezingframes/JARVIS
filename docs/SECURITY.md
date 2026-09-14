@@ -24,6 +24,13 @@ a malicious mail provider.
 
 ## 2. Authentication
 
+Email + password is the default. **Google Sign-In** is optional and is verified entirely on the
+server: the app runs OAuth 2.0 + PKCE in the system browser and the API checks the resulting ID token
+against Google's published JWKS (signature, `iss`, `aud`, `exp`) plus a verified email address. No
+client secret exists in the app or the server, and the app never decides whether a token is valid.
+Linking to an existing password account requires a verified Google email address; a Google-only
+account cannot be entered with a password.
+
 - **Password hashing** — scrypt (`N=16384, r=8, p=1`, 64-byte output, 16-byte random salt), stored as
   `scrypt$N$r$p$salt$hash`; verification uses `timingSafeEqual`. Login runs a dummy verification for
   unknown addresses so response timing does not reveal whether an account exists (`services/auth.ts`).
@@ -152,6 +159,9 @@ a malicious mail provider.
 | Any REST route accepted `?token=` as authentication | Low | Query-string auth removed from the API; the WebSocket handshake keeps its own parser |
 | SQLite constraint text (table and column names) was returned to clients | Low | Replaced with a generic message |
 | The demo seed and database-reset scripts could be run against a production database | Low | Both refuse when `NODE_ENV=production` unless explicitly forced |
+| Reading or clearing a notification caused the generation pass to create it again (endless nagging) | Medium (behavioural) | The dedupe check ignores read/dismissed state and dismissal is a soft delete (`dismissed_at`), so a reminder happens once unless the underlying task or habit changes. Recurring nudges compare the exact scheduled time, so tomorrow's nudge still appears |
+| Completing or archiving a task could still be re-announced by the generation pass | Low (behavioural) | Finished tasks are skipped when reminders are generated |
+| An account created through Google had no way to set a first password | Low (usability) | Google-only accounts (`has_password = 0`) may set a password from a live session; every account that already has one must supply it, and password login is refused for Google-only accounts |
 
 ## 10. Known, accepted limitations
 

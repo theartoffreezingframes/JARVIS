@@ -14,6 +14,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   Field,
   Input,
   LoadingBlock,
@@ -35,7 +36,7 @@ const STATUSES = ['not_started', 'active', 'completed', 'archived'] as const;
 export default function ProjectsScreen() {
   const palette = usePalette();
   const router = useRouter();
-  const { projects, summary, isLoading, refetch } = useProjects(true);
+  const { projects, summary, isLoading, error, refetch } = useProjects(true);
   const mutations = useProjectMutations();
   const [filter, setFilter] = useState<'active' | 'all' | 'completed'>('active');
   const [creating, setCreating] = useState(false);
@@ -75,7 +76,11 @@ export default function ProjectsScreen() {
 
       {isLoading && projects.length === 0 ? <LoadingBlock label="Loading projects" /> : null}
 
-      {!isLoading && visible.length === 0 ? (
+      {error && !isLoading && projects.length === 0 ? (
+        <ErrorBlock message="Your projects could not be loaded." onRetry={() => void refetch()} />
+      ) : null}
+
+      {!isLoading && !error && visible.length === 0 ? (
         <EmptyState
           icon="folder-open-outline"
           title={filter === 'completed' ? 'Nothing completed yet' : 'Create your first project'}

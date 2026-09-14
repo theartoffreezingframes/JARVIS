@@ -86,13 +86,47 @@ cd android && ./gradlew assembleRelease       # APK
 `android/` is generated output and is gitignored. Do not commit it, and never run
 `expo prebuild --clean` on a checkout that has local native changes.
 
-## 4. Push credentials (optional)
+## 4. Google Sign-In (optional)
+
+Google sign-in is **off until you configure it**: with no client ids the API answers
+`POST /api/auth/google` with `503` and the app renders no Google button, so nobody is offered a
+login method that cannot work.
+
+To turn it on:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials) create an OAuth
+   client id of type **Android**, package name `app.jarvis.mobile`, and the **SHA-1 of the keystore
+   you actually ship with**:
+   ```bash
+   npx eas-cli@latest credentials --platform android    # prints the SHA-1 EAS generated
+   ```
+   For Play-distributed builds also add the SHA-1 of the *Play App Signing* certificate.
+   (Add an **iOS** client id as well if you build for iOS.)
+2. Export the ids for the build and the server:
+   ```bash
+   export EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
+   export JARVIS_GOOGLE_CLIENT_IDS=1234567890-abc.apps.googleusercontent.com   # on the API host
+   ```
+   `JARVIS_GOOGLE_CLIENT_IDS` accepts a comma-separated list (Android + iOS + web). Set it as an EAS
+   environment variable or in your process manager — never in the repository.
+3. Rebuild. The redirect is the reversed client id
+   (`com.googleusercontent.apps.1234567890-abc:/oauth2redirect`), already derived in
+   `apps/mobile/src/lib/google-flow.ts`.
+
+The app runs OAuth 2.0 + PKCE in the system browser and sends the ID token to the API, which verifies
+signature (Google's JWKS), issuer, audience, expiry and a verified email. There is **no client secret
+anywhere** — a mobile app is a public client, and Google's Android/iOS client types are bound to the
+package name and signing certificate instead. Linking to an existing password account happens only
+through a verified email address, and a Google-only account cannot be entered with a password.
+
+## 5. Push credentials (optional)
 
 Remote push goes through Expo's push service:
 
 - **Android:** create a Firebase project, add an Android app with package `app.jarvis.mobile`, then
   upload the FCM service-account JSON to EAS:
-  `npx eas-cli@latest credentials --platform android` → *Google Service Account*.
+  `npx eas-cli@latest credentials --platform android` → *Google Service Account*. (This is the
+  Firebase/FCM credential for *push notifications* — it is not the Google Sign-In client id from §4.)
   Alternatively place `google-services.json` in `apps/mobile/` — it is gitignored, so it stays local.
 - **iOS:** EAS manages the APNs key for you (`eas credentials --platform ios`).
 
@@ -100,7 +134,7 @@ Never commit `google-services.json`, `GoogleService-Info.plist` or service-accou
 needs no FCM credentials of its own; it posts to `https://exp.host/--/api/v2/push/send` and the
 device's Expo push token identifies the install.
 
-## 5. Signing
+## 6. Signing
 
 **EAS-managed (recommended).** On the first Android build EAS offers to generate a keystore and stores
 it on your account: nothing sensitive ever lives in the repository.
@@ -124,7 +158,7 @@ Then reference it from `android/gradle.properties` (generated, gitignored) with
 `~/.gradle/gradle.properties` (never in the project). `.gitignore` already blocks `*.jks`,
 `*.keystore`, `keystore.properties`, `credentials.json`, `play-service-account*.json` and `.env*`.
 
-## 6. Publish the GitHub Release
+## 7. Publish the GitHub Release
 
 Download the APK first (from the EAS build URL, or from the `jarvis-preview-apk` workflow artifact if
 you used the manual GitHub Actions job), then attach it to a tagged release:
@@ -157,7 +191,7 @@ sha256sum app-release.apk > app-release.apk.sha256
 Bump `expo.version` in `apps/mobile/app.json` for every user-visible release; `eas.json` increments
 the Android `versionCode` automatically in the `production` profile.
 
-## 7. Installing it on an Android phone
+## 8. Installing it on an Android phone
 
 1. Open the release page and download `app-release.apk` (or scan the EAS QR code).
 2. Tap the file. Android asks for permission to install from that source — allow it for the browser or
@@ -169,7 +203,7 @@ the Android `versionCode` automatically in the `production` profile.
 5. Updates: install the newer APK over the old one (same signing key). Data lives on the server, so
    nothing is lost.
 
-## 8. Continuous integration
+## 9. Continuous integration
 
 `.github/workflows/ci.yml` runs on every push and pull request:
 
@@ -184,7 +218,7 @@ No workflow publishes anything automatically and no workflow prints secrets. To 
 APK job, add `EXPO_TOKEN` in **Settings → Secrets and variables → Actions** (create it at
 expo.dev → Account settings → Access tokens).
 
-## 9. Release checklist
+## 10. Release checklist
 
 The manual device pass is **[DEVICE-TESTS.md](DEVICE-TESTS.md)** — it is currently *not executed*, so
 treat it as a gate rather than a formality.
@@ -194,6 +228,8 @@ treat it as a gate rather than a formality.
 - [ ] An email provider is configured and a password-reset email actually arrives
 - [ ] `npm run typecheck && npm test` pass on the release commit
 - [ ] `EXPO_PUBLIC_API_URL` is exported for the build
+- [ ] Google sign-in either configured end to end (client id + `JARVIS_GOOGLE_CLIENT_IDS`, device
+      test passes) or intentionally left off — a half-configured build shows no button at all
 - [ ] APK built with the `preview` profile (or local `assembleRelease`) and installed on a real phone
 - [ ] The sections of [DEVICE-TESTS.md](DEVICE-TESTS.md) that apply to your deployment are green on a
       real device against the production API — at minimum auth (signup, login, session restoration,

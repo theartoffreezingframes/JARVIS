@@ -10,8 +10,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { Button, Card, Field, Input, Row, Screen, Stack, Type } from '../components/ui';
+import { Button, Card, Divider, Field, Input, Row, Screen, Stack, Type } from '../components/ui';
 import { useAuth } from '../lib/auth';
+import { GoogleSignInError, googleSignInAvailable } from '../lib/google';
 import { usePalette, spacing } from '../lib/theme';
 
 function passwordProblem(password: string): string | null {
@@ -23,12 +24,14 @@ function passwordProblem(password: string): string | null {
 export default function SignUpScreen() {
   const palette = usePalette();
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
+  const googleReady = googleSignInAvailable();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timezone, setTimezone] = useState('UTC');
   const [offsetMinutes, setOffsetMinutes] = useState(0);
@@ -46,6 +49,24 @@ export default function SignUpScreen() {
   const problem = useMemo(() => (password ? passwordProblem(password) : null), [password]);
   const usernameValid = /^[a-z0-9._]{3,20}$/.test(username);
   const canSubmit = name.trim().length > 1 && usernameValid && /\S+@\S+\.\S+/.test(email) && !problem && password.length > 0;
+
+  const submitGoogle = async () => {
+    setGoogleBusy(true);
+    setError(null);
+    try {
+      await signInWithGoogle();
+      try {
+        await Notifications.requestPermissionsAsync();
+      } catch {
+        /* unsupported on this platform */
+      }
+    } catch (submitError) {
+      if (submitError instanceof GoogleSignInError && submitError.cancelled) return;
+      setError(submitError instanceof Error ? submitError.message : 'Could not continue with Google');
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -145,6 +166,30 @@ export default function SignUpScreen() {
             </Row>
           ) : null}
           <Button label="Create account" onPress={submit} loading={busy} disabled={!canSubmit} full />
+          {googleReady ? (
+            <>
+              <Row gap={spacing.sm}>
+                <Divider style={{ flex: 1 }} />
+                <Type variant="caption" color={palette.textMuted}>
+                  or
+                </Type>
+                <Divider style={{ flex: 1 }} />
+              </Row>
+              <Button
+                label="Sign up with Google"
+                variant="secondary"
+                icon="logo-google"
+                onPress={submitGoogle}
+                loading={googleBusy}
+                disabled={busy}
+                full
+                accessibilityHint="Opens Google's account chooser in your browser"
+              />
+              <Type variant="caption" color={palette.textFaint}>
+                Google confirms your email address. You can add a password later from Settings.
+              </Type>
+            </>
+          ) : null}
           <Type variant="caption" color={palette.textFaint}>
             By continuing you agree that JARVIS may store your tasks, habits and focus history so it can sync across your
             devices. You can export or delete everything from Settings at any time.

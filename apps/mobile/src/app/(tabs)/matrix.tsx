@@ -21,6 +21,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   LoadingBlock,
   Row,
   Screen,
@@ -90,9 +91,12 @@ export default function MatrixScreen() {
 
   const name = (quadrant: Quadrant) => matrixSettings?.quadrantNames[quadrant] ?? QUADRANT_LABEL[quadrant];
   const description = (quadrant: Quadrant) => matrixSettings?.quadrantDescriptions[quadrant] ?? QUADRANT_HINT[quadrant];
-  const { counts, tasks, isLoading, refetch } = useMatrix();
+  const { counts, tasks, isLoading, error, refetch } = useMatrix();
   const { dashboard } = useDashboard();
-  const { setQuadrant } = useTaskMutations();
+  const { setQuadrant, complete } = useTaskMutations();
+
+  /** Completing a task from the matrix must actually complete it. */
+  const toggleTask = useCallback((task: Task) => void complete(task, task.status !== 'done'), [complete]);
   const zones = useRef(ZoneRegistry()).current;
 
   const [menuTask, setMenuTask] = useState<Task | null>(null);
@@ -118,6 +122,14 @@ export default function MatrixScreen() {
 
   const suggestions = dashboard?.matrix.suggestions ?? [];
   const overload = suggestions.filter((suggestion) => suggestion.quadrant === 'do_now');
+
+  if (error && !isLoading && tasks.length === 0) {
+    return (
+      <Screen edges={['top']}>
+        <ErrorBlock message="Your matrix could not be loaded." onRetry={() => void refetch()} />
+      </Screen>
+    );
+  }
 
   if (isLoading && tasks.length === 0) {
     return (
@@ -242,7 +254,7 @@ export default function MatrixScreen() {
               today={dashboard?.today ?? ''}
               onOpen={(task) => router.push(`/task/${task.id}`)}
               onMenu={setMenuTask}
-              onToggle={() => undefined}
+              onToggle={toggleTask}
             />
             <QuadrantColumn
               customName={name('schedule')}
@@ -262,7 +274,7 @@ export default function MatrixScreen() {
               today={dashboard?.today ?? ''}
               onOpen={(task) => router.push(`/task/${task.id}`)}
               onMenu={setMenuTask}
-              onToggle={() => undefined}
+              onToggle={toggleTask}
             />
           </Row>
           <Row gap={spacing.md} align="stretch" style={{ flex: 1 }}>
@@ -284,7 +296,7 @@ export default function MatrixScreen() {
               today={dashboard?.today ?? ''}
               onOpen={(task) => router.push(`/task/${task.id}`)}
               onMenu={setMenuTask}
-              onToggle={() => undefined}
+              onToggle={toggleTask}
             />
             <QuadrantColumn
               customName={name('eliminate')}
@@ -304,7 +316,7 @@ export default function MatrixScreen() {
               today={dashboard?.today ?? ''}
               onOpen={(task) => router.push(`/task/${task.id}`)}
               onMenu={setMenuTask}
-              onToggle={() => undefined}
+              onToggle={toggleTask}
                 />
               </Row>
             </>

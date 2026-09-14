@@ -4,13 +4,14 @@
 import { useRouter } from 'expo-router';
 import { Badge, Button, Card, Row, Screen, SectionHeader, Stack, Type } from '../../components/ui';
 import { api, API_BASE_URL } from '../../lib/api';
+import { googleSignInAvailable } from '../../lib/google';
 import { useOfflineStatus } from '../../lib/offline';
 import { useQuery } from '../../lib/query';
 import { useRealtimeStatus } from '../../lib/realtime';
 import { spacing, usePalette } from '../../lib/theme';
 
 interface HealthPayload {
-  capabilities?: { email?: string; push?: boolean };
+  capabilities?: { email?: string; push?: boolean; google?: string };
 }
 
 export default function AboutScreen() {
@@ -31,6 +32,18 @@ export default function AboutScreen() {
       : emailProvider === 'none'
         ? 'Password resets: this server has no mail provider configured, so a reset link cannot be emailed. An administrator has to set the JARVIS_EMAIL_* variables before sign-in recovery can work for real users.'
         : `Password resets are emailed by this server's configured provider (${emailProvider}).`;
+
+  // Google sign-in is optional and only exists where client ids are configured.
+  // The line must describe *this* deploy, not a hypothetical one.
+  const googleProvider = health.data?.capabilities?.google;
+  const googleInBuild = googleSignInAvailable();
+  const googleLine = !googleInBuild
+    ? 'Google sign-in: this build has no Google client id, so the button is not shown. Add EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID and rebuild to enable it.'
+    : googleProvider === undefined
+      ? 'Google sign-in: checking whether this server accepts Google tokens…'
+      : googleProvider === 'not-configured'
+        ? 'Google sign-in: this build offers it, but the server has no JARVIS_GOOGLE_CLIENT_IDS configured, so the API refuses it.'
+        : 'Google sign-in is available: the server verifies Google ID tokens against Google’s published keys.';
 
   return (
     <Screen edges={['top']}>
@@ -119,8 +132,10 @@ export default function AboutScreen() {
               • {emailLine}
             </Type>
             <Type variant="caption" color={palette.textMuted}>
-              • Google and Apple sign-in — email and password are complete; the schema already separates credentials from
-              identity so an external provider can be added without a migration.
+              • {googleLine}
+            </Type>
+            <Type variant="caption" color={palette.textMuted}>
+              • Apple sign-in is not implemented; email + password works everywhere.
             </Type>
             <Type variant="caption" color={palette.textMuted}>
               • AI features. Task breakdown, duration estimation and scheduling suggestions are deliberately absent rather

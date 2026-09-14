@@ -15,6 +15,7 @@ import {
   Button,
   Card,
   Chip,
+  ErrorBlock,
   Field,
   Input,
   ListRow,
@@ -33,7 +34,7 @@ import { api } from '../../lib/api';
 export default function SettingsScreen() {
   const palette = usePalette();
   const router = useRouter();
-  const { user, settings, updateProfile, updateSettings, signOut, refreshMe } = useAuth();
+  const { user, settings, error: authError, status, updateProfile, updateSettings, signOut, refreshMe } = useAuth();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? '');
   const [username, setUsername] = useState(user?.username ?? '');
@@ -43,10 +44,21 @@ export default function SettingsScreen() {
   const [demoState, setDemoState] = useState<{ enabled: boolean } | null>(null);
 
   if (!user || !settings) {
+    // The account is only "loading" while the session is being restored; once it
+    // is signed in but the profile is missing, saying "loading" forever would be
+    // a lie — offer the real failure and a retry instead.
+    const stillLoading = status === 'loading';
     return (
       <Screen edges={['top']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
-        <LoadingBlock label="Loading your account" />
+        {stillLoading ? (
+          <LoadingBlock label="Loading your account" />
+        ) : (
+          <ErrorBlock
+            message={authError ?? 'Your account details could not be loaded.'}
+            onRetry={() => void refreshMe()}
+          />
+        )}
       </Screen>
     );
   }

@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Chip,
+  ErrorBlock,
   Field,
   Input,
   LoadingBlock,
@@ -17,7 +18,7 @@ import {
   Stack,
   Type,
 } from '../../components/ui';
-import { api } from '../../lib/api';
+import { ApiError, api } from '../../lib/api';
 import { invalidate, useQuery } from '../../lib/query';
 import { useNoteMutations, useProjects } from '../../hooks/useLibrary';
 import { describeFailure } from '../../hooks/useTasks';
@@ -61,12 +62,19 @@ export default function NoteDetailScreen() {
   }
 
   if (!note) {
+    const missing = query.error instanceof ApiError && query.error.status === 404;
     return (
       <Screen edges={['top']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
-        <Card>
-          <Type variant="bodyStrong">This note no longer exists.</Type>
-        </Card>
+        {missing ? (
+          <Card>
+            <Type variant="bodyStrong">This note no longer exists.</Type>
+          </Card>
+        ) : query.error ? (
+          <ErrorBlock message="This note could not be loaded." onRetry={() => void query.refetch()} />
+        ) : (
+          <LoadingBlock label="Loading note" />
+        )}
       </Screen>
     );
   }

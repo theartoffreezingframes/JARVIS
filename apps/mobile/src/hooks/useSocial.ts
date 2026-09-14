@@ -19,6 +19,7 @@ export function useGroups() {
     groups: query.data?.groups ?? [],
     friendCount: query.data?.friendCount ?? 0,
     isLoading: query.isLoading,
+    error: query.error,
     refetch: query.refetch,
   };
 }
@@ -27,14 +28,20 @@ export function useGroup(groupId: string | null) {
   const query = useQuery<GroupDetailResponse>(groupId ? queryKeys.group(groupId) : null, () =>
     api.get<GroupDetailResponse>(`/api/groups/${groupId}`),
   );
-  return { group: query.data?.group, sessions: query.data?.sessions ?? [], isLoading: query.isLoading, refetch: query.refetch };
+  return {
+    group: query.data?.group,
+    sessions: query.data?.sessions ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
 export function useLeaderboard(groupId: string | null) {
   const query = useQuery<LeaderboardResponse>(groupId ? `leaderboard:${groupId}` : null, () =>
     api.get<LeaderboardResponse>(`/api/groups/${groupId}/leaderboard`),
   );
-  return { leaderboard: query.data, refetch: query.refetch };
+  return { leaderboard: query.data, error: query.error, refetch: query.refetch };
 }
 
 export function useFriends() {
@@ -43,6 +50,7 @@ export function useFriends() {
     friends: query.data?.accepted ?? [],
     incoming: query.data?.incoming ?? [],
     outgoing: query.data?.outgoing ?? [],
+    error: query.error,
     refetch: query.refetch,
   };
 }
@@ -112,6 +120,8 @@ export function useGangSessions() {
     scheduled: query.data?.scheduled ?? [],
     history: query.data?.history ?? [],
     serverTime: query.data?.serverTime ?? Date.now(),
+    isLoading: query.isLoading,
+    error: query.error,
     refetch: query.refetch,
   };
 }
@@ -167,7 +177,7 @@ export function useGangSession(sessionId: string | null) {
     Boolean(sessionId),
   );
 
-  return { detail: query.data, isLoading: query.isLoading, refetch: query.refetch };
+  return { detail: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 export function useGangMutations() {

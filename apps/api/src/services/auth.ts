@@ -17,6 +17,7 @@ import {
   revokeRefreshToken,
   updatePasswordHash,
   invalidateOpenPasswordResets,
+  recordPasswordSet,
 } from '../repo/users.js';
 import type { UserRow } from '../repo/rows.js';
 import { newId } from '../lib/crypto.js';
@@ -107,7 +108,11 @@ export async function authenticateWithPassword(email: string, password: string):
   // Always run a verification so response timing does not reveal account existence.
   const hash = user?.password_hash ?? 'scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
   const ok = await verifyPassword(password, hash);
-  if (!user || !ok) throw AppError.unauthorized('Email or password is incorrect');
+  // Accounts created through Google have no usable password: the column holds a
+  // real hash of random bytes, so the check above still costs full work.
+  if (!user || !ok || user.has_password === 0) {
+    throw AppError.unauthorized('Email or password is incorrect');
+  }
   return user;
 }
 
@@ -184,13 +189,18 @@ export async function resetPassword(token: string, newPassword: string): Promise
  */
 export async function changePassword(
   user: UserRow,
-  currentPassword: string,
+  currentPassword: string | undefined,
   newPassword: string,
   keepSid: string | null = null,
-): Promise<void> {
-  const ok = await verifyPassword(currentPassword, user.password_hash);
-  if (!ok) throw AppError.badRequest('Your current password is incorrect');
+): Promise<{ setFirstPassword: boolean }> {
+  const hasPassword = user.has_password !== 0;
+  if (hasPassword) {
+    const ok = await verifyPassword(currentPassword ?? '', user.password_hash);
+    if (!ok) throw AppError.badRequest('Your current password is incorrect');
+  }
   const { hashPassword } = await import('../lib/crypto.js');
   updatePasswordHash(user.id, await hashPassword(newPassword));
+  if (!hasPassword) recordPasswordSet(user.id);
   revokeOtherRefreshTokens(user.id, keepSid);
+  return { setFirstPassword: !hasPassword };
 }

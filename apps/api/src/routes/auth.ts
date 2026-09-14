@@ -1,20 +1,22 @@
 import type { FastifyInstance } from 'fastify';
 import {
-  changePasswordSchema,
   forgotPasswordSchema,
+  googleSignInSchema,
   loginSchema,
   refreshSchema,
   resetPasswordSchema,
+  setPasswordSchema,
   signUpSchema,
 } from '@jarvis/shared';
 import { config } from '../env.js';
 import { authenticate, bearerToken, requireUser } from '../http/auth-plugin.js';
 import { enforceRateLimit } from '../http/rate-limit.js';
-import { parseOrThrow } from '../lib/errors.js';
+import { AppError, parseOrThrow } from '../lib/errors.js';
 import { findRefreshToken, revokeAllRefreshTokens, revokeRefreshToken, audit, getSettingsRow } from '../repo/users.js';
 import { hashToken } from '../lib/crypto.js';
 import { verifyAccessToken } from '../lib/tokens.js';
 import { mapUser, parseSettings } from '../repo/mappers.js';
+import { googleSignInAvailable, signInWithGoogle } from '../services/google.js';
 import {
   authenticateWithPassword,
   changePassword,
@@ -60,6 +62,37 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       user: mapUser(user),
       settings: parseSettings(user, getSettingsRow(user.id)),
       ...tokens,
+    });
+  });
+
+  /**
+   * Google Sign-In.
+   *
+   * The app performs the OAuth 2.0 + PKCE exchange in the system browser and
+   * posts the resulting ID token here. This server is the only party that
+   * decides whether the token is genuine (signature against Google's JWKS,
+   * issuer, audience, expiry, verified email) — the client is never trusted.
+   *
+   * A deployment without `JARVIS_GOOGLE_CLIENT_IDS` answers 503 and the app
+   * hides the button, so nobody is offered a sign-in method that cannot work.
+   */
+  app.post('/auth/google', async (request, reply) => {
+    enforceRateLimit(request, reply, 'google', 30, 15 * 60_000);
+    if (!googleSignInAvailable()) {
+      throw AppError.unavailable('Google Sign-In is not enabled on this server');
+    }
+    const input = parseOrThrow(googleSignInSchema, request.body);
+    const result = await signInWithGoogle({
+      idToken: input.idToken,
+      deviceName: input.deviceName ?? null,
+      timezone: input.timezone,
+      timezoneOffsetMinutes: input.timezoneOffsetMinutes,
+    });
+    audit(result.created ? 'auth.google_signup' : 'auth.google_login', { userId: result.user.id, ip: request.ip });
+    return reply.status(result.created ? 201 : 200).send({
+      user: mapUser(result.user),
+      settings: parseSettings(result.user, getSettingsRow(result.user.id)),
+      ...result.tokens,
     });
   });
 
@@ -132,12 +165,17 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/auth/change-password', async (request, reply) => {
     const user = requireUser(request);
-    const input = parseOrThrow(changePasswordSchema, request.body);
+    const input = parseOrThrow(setPasswordSchema, request.body);
     // Identify this device's session so it survives the change while every other
     // device is signed out.
     const claims = verifyAccessToken(bearerToken(request) ?? '');
-    await changePassword(user, input.currentPassword, input.newPassword, claims?.sid ?? null);
-    audit('auth.change_password', { userId: user.id, ip: request.ip });
-    return reply.send({ ok: true, message: 'Password updated. Other devices have been signed out.' });
+    const result = await changePassword(user, input.currentPassword, input.newPassword, claims?.sid ?? null);
+    audit(result.setFirstPassword ? 'auth.password_set' : 'auth.change_password', { userId: user.id, ip: request.ip });
+    return reply.send({
+      ok: true,
+      message: result.setFirstPassword
+        ? 'Password set. You can now sign in with your email and password.'
+        : 'Password updated. Other devices have been signed out.',
+    });
   });
 }

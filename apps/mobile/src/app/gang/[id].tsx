@@ -15,7 +15,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { Avatar, Badge, Button, Card, EmptyState, LoadingBlock, Row, Screen, SectionHeader, Stack, Type } from '../../components/ui';
+import { Avatar, Badge, Button, Card, EmptyState, ErrorBlock, LoadingBlock, Row, Screen, SectionHeader, Stack, Type } from '../../components/ui';
+import { ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { useGangMutations, useGangSession } from '../../hooks/useSocial';
 import { useRealtimeStatus } from '../../lib/realtime';
@@ -48,7 +49,7 @@ export default function GangSessionScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { user } = useAuth();
-  const { detail, isLoading, refetch } = useGangSession(id ?? null);
+  const { detail, isLoading, error, refetch } = useGangSession(id ?? null);
   const mutations = useGangMutations();
   const realtimeStatus = useRealtimeStatus();
   const [now, setNow] = useState(() => Date.now());
@@ -104,6 +105,20 @@ export default function GangSessionScreen() {
       <Screen edges={['top', 'bottom']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
         <LoadingBlock label="Joining the session" />
+      </Screen>
+    );
+  }
+
+  if (error && !detail) {
+    const missing = error instanceof ApiError && error.status === 404;
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
+        {missing ? (
+          <EmptyState icon="people-outline" title="Session unavailable" body="It may have ended or been cancelled." />
+        ) : (
+          <ErrorBlock message="This focus session could not be loaded." onRetry={() => void refetch()} />
+        )}
       </Screen>
     );
   }

@@ -15,6 +15,7 @@ import type { DeepPartial } from './types';
 import { clearQueryCache, invalidate } from './query';
 import { realtime } from './realtime';
 import { applyThemeSettings } from './theme';
+import { runGoogleSignIn } from './google';
 
 export interface SessionUser {
   id: string;
@@ -29,6 +30,10 @@ export interface SessionUser {
   emailVerified: boolean;
   weekStartsOn: number;
   use24Hour: boolean;
+  /** False for accounts created through Google that have not chosen a password yet. */
+  hasPassword?: boolean;
+  /** True when the account is linked to a Google account. */
+  hasGoogle?: boolean;
 }
 
 interface AuthPayload {
@@ -62,9 +67,10 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ token: string | null; delivered: boolean | null }>;
   resetPassword: (token: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   updateProfile: (patch: Partial<SessionUser> & { avatarUrl?: string | null }) => Promise<void>;
   updateSettings: (patch: DeepPartial<UserSettings>) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  changePassword: (currentPassword: string | undefined, newPassword: string) => Promise<void>;
   changeEmail: (email: string, password: string) => Promise<void>;
   refreshMe: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
@@ -254,6 +260,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyMe],
   );
 
+  /**
+   * Google Sign-In: the browser flow happens on the device, the ID token is
+   * verified by the API (signature, issuer, audience, verified email) and the
+   * same session tokens are issued as for email + password sign-in.
+   */
+  const signInWithGoogle = useCallback(async () => {
+    setError(null);
+    try {
+      const idToken = await runGoogleSignIn();
+      let timezone = 'UTC';
+      let timezoneOffsetMinutes = 0;
+      try {
+        timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        timezoneOffsetMinutes = -new Date().getTimezoneOffset();
+      } catch {
+        /* keep UTC */
+      }
+      const payload = await api.post<AuthPayload>(
+        '/api/auth/google',
+        { idToken, deviceName: 'mobile', timezone, timezoneOffsetMinutes },
+        { skipAuth: true },
+      );
+      await tokenStore.set(payload.accessToken, payload.refreshToken);
+      applyMe({ user: payload.user, settings: payload.settings });
+      setStatus('signedIn');
+      realtime.reconnect();
+      invalidate('dashboard', 'tasks', 'habits', 'analytics');
+    } catch (googleError) {
+      setError(toMessage(googleError));
+      throw googleError;
+    }
+  }, [applyMe]);
+
   const refreshMe = useCallback(async () => {
     await loadMe();
   }, [loadMe]);
@@ -277,9 +316,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
-    await api.post('/api/auth/change-password', { currentPassword, newPassword });
-  }, []);
+  const changePassword = useCallback(async (currentPassword: string | undefined, newPassword: string) => {
+    // `currentPassword` is omitted for a Google-only account that is choosing
+    // its first password; the server still requires it once one exists.
+    await api.post('/api/auth/change-password', {
+      ...(currentPassword ? { currentPassword } : {}),
+      newPassword,
+    });
+    await loadMe();
+  }, [loadMe]);
 
   const changeEmail = useCallback(async (email: string, password: string) => {
     const payload = await api.post<MePayload>('/api/me/email', { email: email.trim().toLowerCase(), password });
@@ -309,6 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       forgotPassword,
       resetPassword,
+      signInWithGoogle,
       updateProfile,
       updateSettings,
       changePassword,
@@ -326,6 +372,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       forgotPassword,
       resetPassword,
+      signInWithGoogle,
       updateProfile,
       updateSettings,
       changePassword,

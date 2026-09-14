@@ -30,6 +30,16 @@ pretending.
 
 ## Features
 
+### Accounts and sign-in
+- Email + password sign-in with a private workspace created at signup.
+- **Google Sign-In** (optional): when the operator configures Google client ids, the app offers
+  “Continue with Google”. The ID token is verified by the API against Google's published keys —
+  signature, issuer, audience, expiry and a verified email address — and a Google account is linked
+  to an existing email account only through that verified address. Unconfigured deployments answer
+  `503` and the app hides the button, so no unusable option is ever shown.
+- Per-device sessions: signing out on one phone leaves your other devices signed in; changing the
+  password signs the others out.
+
 ### Capture and organize
 - **Tasks** with subtasks, tags, priorities, estimates, due dates/times, recurring rules, projects
   and a natural-language quick-capture ("Submit the report tomorrow at 5pm every weekday") that
@@ -155,7 +165,9 @@ Every server variable is documented in **[`.env.example`](.env.example)** — co
 | `JARVIS_ALLOWED_ORIGINS` | CORS allow-list when a browser uses another origin | When serving the web client cross-origin |
 | `JARVIS_EMAIL_*` | SMTP or HTTP provider for password-reset mail | For real users |
 | `JARVIS_PUSH_*` | Expo push relay (no secrets needed by default) | Optional |
+| `JARVIS_GOOGLE_CLIENT_IDS` | Enables `POST /api/auth/google`; empty means the app hides Google sign-in and the route answers 503 | Optional |
 | `EXPO_PUBLIC_API_URL` (client, build time) | The HTTPS API origin the APK talks to | **Yes** for release builds |
+| `EXPO_PUBLIC_GOOGLE_*_CLIENT_ID` (client, build time) | Google OAuth client ids (public identifiers, never a secret) | Optional |
 
 Nothing secret ever ships in the app bundle: `EXPO_PUBLIC_*` is public by definition and is only
 used for the API origin. A release build without `EXPO_PUBLIC_API_URL` does not fall back to
@@ -216,7 +228,8 @@ cd android && ./gradlew assembleRelease
 
 ```bash
 npm run typecheck     # shared, api and mobile — strict TypeScript
-npm test              # API (integration, domain, rate limiter, acceptance, production, security, log hygiene) + mobile unit tests
+npm test              # API (integration, domain, rate limiter, acceptance, production, security,
+                      #      log hygiene, realtime WebSocket, notifications, Google sign-in) + mobile units
 npm run build:web     # exports the web client the API serves
 ```
 
@@ -256,8 +269,11 @@ Stated plainly so nobody is surprised in production:
 - **Remote push needs an EAS project id** (and, for Android, credentials configured on that EAS
   project). Local reminders work with neither. The app reports the exact status in
   Settings → Notifications instead of pretending.
-- **Google/Apple sign-in is not implemented.** Email and password are complete; the schema already
-  separates credentials from identity so a provider can be added later without a migration.
+- **Apple sign-in is not implemented**, and Google Sign-In only appears when the deployment
+  configures Google client ids (see `.env.example`). A build without them shows no Google button at
+  all — nothing is faked. Google sign-in is also *not verified on a physical device* in this
+  repository: the server side is covered by tests (`apps/api/tests/google.test.ts`), the device leg
+  needs the manual checklist.
 - **iOS builds need an Apple Developer account** for device distribution; Android APKs do not.
 - **The web build is a companion**, not the product: native-only behaviour (background timers,
   notification scheduling) is naturally limited there.

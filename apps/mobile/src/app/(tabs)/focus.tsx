@@ -19,6 +19,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   Field,
   Input,
   ProgressBar,
@@ -64,7 +65,7 @@ export default function FocusScreen() {
   const { settings, user } = useAuth();
   const timer = useFocusTimerState();
   const { stats } = useFocusStats();
-  const { presets } = useFocusPresets();
+  const { presets, error: presetsError, refetch: refetchPresets } = useFocusPresets();
   const { sessions } = useFocusSessions({ limit: 6 });
   const { dashboard } = useDashboard();
   const { tasks } = useTasks({ view: 'today', limit: 50 });
@@ -250,6 +251,12 @@ export default function FocusScreen() {
         <>
           <Stack gap={spacing.sm}>
             <SectionHeader title="Session length" subtitle="Saved presets plus anything you like." />
+            {presetsError ? (
+              <ErrorBlock
+                message="Your saved session lengths could not be refreshed — the built-in ones are shown."
+                onRetry={() => void refetchPresets()}
+              />
+            ) : null}
             <Row gap={spacing.sm} wrap>
               {presets.map((preset) => (
                 <Chip

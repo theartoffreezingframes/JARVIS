@@ -17,6 +17,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   Field,
   Input,
   LoadingBlock,
@@ -41,7 +42,7 @@ export default function HabitsScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { settings } = useAuth();
-  const { habits, today, isLoading, refetch } = useHabits(true);
+  const { habits, today, isLoading, error, refetch } = useHabits(true);
   const mutations = useHabitMutations();
   const [editing, setEditing] = useState<Habit | null>(null);
   const [creating, setCreating] = useState(false);
@@ -72,7 +73,11 @@ export default function HabitsScreen() {
 
       {isLoading && habits.length === 0 ? <LoadingBlock label="Loading habits" /> : null}
 
-      {active.length === 0 && !isLoading ? (
+      {error && !isLoading && habits.length === 0 ? (
+        <ErrorBlock message="Your habits could not be loaded." onRetry={() => void refetch()} />
+      ) : null}
+
+      {active.length === 0 && !isLoading && !error ? (
         <EmptyState
           icon="repeat"
           title="Build your first habit"

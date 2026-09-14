@@ -16,6 +16,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   Field,
   Input,
   LoadingBlock,
@@ -27,6 +28,7 @@ import {
   SwitchRow,
   Type,
 } from '../../components/ui';
+import { ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { useFriends, useGangMutations, useGroup, useGroupMutations, useLeaderboard } from '../../hooks/useSocial';
 import { radius, spacing, usePalette } from '../../lib/theme';
@@ -36,7 +38,7 @@ export default function GroupDetailScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { user, settings, updateSettings } = useAuth();
-  const { group, sessions, isLoading, refetch } = useGroup(id ?? null);
+  const { group, sessions, isLoading, error, refetch } = useGroup(id ?? null);
   const { leaderboard, refetch: refetchLeaderboard } = useLeaderboard(id ?? null);
   const { friends } = useFriends();
   const mutations = useGroupMutations();
@@ -57,6 +59,21 @@ export default function GroupDetailScreen() {
       <Screen edges={['top']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
         <LoadingBlock label="Loading group" />
+      </Screen>
+    );
+  }
+
+  // A failed load is not the same as "this group is gone": say which one it is.
+  if (error && !group) {
+    const missing = error instanceof ApiError && error.status === 404;
+    return (
+      <Screen edges={['top']}>
+        <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
+        {missing ? (
+          <EmptyState icon="people-outline" title="Group unavailable" body="You may have left it, or it was deleted." />
+        ) : (
+          <ErrorBlock message="This group could not be loaded." onRetry={() => void refetch()} />
+        )}
       </Screen>
     );
   }

@@ -8,17 +8,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, Field, Input, Row, Screen, Stack, Type } from '../components/ui';
+import { Button, Card, Divider, Field, Input, Row, Screen, Stack, Type } from '../components/ui';
 import { useAuth } from '../lib/auth';
+import { GoogleSignInError } from '../lib/google';
+import { googleSignInAvailable } from '../lib/google';
 import { usePalette, spacing } from '../lib/theme';
 
 export default function SignInScreen() {
   const palette = usePalette();
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
+  const googleReady = googleSignInAvailable();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
@@ -30,6 +34,20 @@ export default function SignInScreen() {
       setError(submitError instanceof Error ? submitError.message : 'Could not sign in');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const submitGoogle = async () => {
+    setGoogleBusy(true);
+    setError(null);
+    try {
+      await signInWithGoogle();
+    } catch (submitError) {
+      // Backing out of the Google sheet is not an error.
+      if (submitError instanceof GoogleSignInError && submitError.cancelled) return;
+      setError(submitError instanceof Error ? submitError.message : 'Could not sign in with Google');
+    } finally {
+      setGoogleBusy(false);
     }
   };
 
@@ -93,6 +111,27 @@ export default function SignInScreen() {
                 </Row>
               ) : null}
               <Button label="Sign in" onPress={submit} loading={busy} full disabled={!email || password.length < 1} />
+              {googleReady ? (
+                <>
+                  <Row gap={spacing.sm}>
+                    <Divider style={{ flex: 1 }} />
+                    <Type variant="caption" color={palette.textMuted}>
+                      or
+                    </Type>
+                    <Divider style={{ flex: 1 }} />
+                  </Row>
+                  <Button
+                    label="Continue with Google"
+                    variant="secondary"
+                    icon="logo-google"
+                    onPress={submitGoogle}
+                    loading={googleBusy}
+                    disabled={busy}
+                    full
+                    accessibilityHint="Opens Google's account chooser in your browser"
+                  />
+                </>
+              ) : null}
               <Button label="Forgot password?" variant="ghost" size="sm" onPress={() => router.push('/forgot-password')} />
             </Stack>
           </Card>

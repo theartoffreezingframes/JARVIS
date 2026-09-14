@@ -44,7 +44,10 @@ Testers / dates: `_________________________________________________`
 | 1.9 | Password reset | Open the emailed link on the phone, choose a new password, sign in with it. The old password no longer works. | ☐ |
 | 1.10 | Reset token is single use | Re-open the same link: it is refused, with a clear message. | ☐ |
 | 1.11 | Sign out all devices | On phone A change the password (Settings → Password) or sign out all sessions: phone B's next request is rejected and it returns to sign-in. | ☐ |
-| 1.12 | Google sign-in | **N/A (not implemented).** There is no Google/OAuth client id in this build and no server-side OAuth flow. Do not test as if it existed. | N/A |
+| 1.12 | Set a first password (Google-only account) | Sign in with Google, then Settings → Password: the screen offers *Set a password* (no current-password field). Set one, sign out, and sign in with email + password. | ☐ |
+| 1.13 | Google sign-in | **Only if the build has Google client ids and the server has `JARVIS_GOOGLE_CLIENT_IDS`** (see `docs/RELEASE.md` §4). Tap *Continue with Google*: the system browser opens Google's chooser, and returning lands you signed in. If either side is unconfigured the button is absent or the API answers `503` — that is the expected state, not a bug. | ☐ / N/A |
+| 1.14 | Google sign-in isolation | A Google account's workspace is empty and separate: it must not show another account's tasks, and an account created with a password keeps working with both methods after linking. | ☐ / N/A |
+| 1.15 | Google link requires a verified email | A Google account whose email is not verified is refused with a clear message (server side is covered by tests; confirm the app shows it cleanly). | ☐ / N/A |
 
 ## 2. Tasks
 

@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url            TEXT,
   bio                   TEXT,
   password_hash         TEXT NOT NULL,
+  -- Google Sign-In link: Google's immutable subject id, or NULL for accounts
+  -- that only ever used email + password. Unique when present (partial index).
+  google_sub            TEXT,
+  -- 0 for accounts created through Google that have not chosen a password yet.
+  has_password          INTEGER NOT NULL DEFAULT 1,
   timezone              TEXT NOT NULL DEFAULT 'UTC',
   tz_offset_minutes     INTEGER NOT NULL DEFAULT 0,
   week_starts_on        INTEGER NOT NULL DEFAULT 1,
@@ -355,6 +360,9 @@ CREATE TABLE IF NOT EXISTS notifications (
   scheduled_for INTEGER NOT NULL,
   delivered_at  INTEGER,
   read_at       INTEGER,
+  -- Set when the person dismisses it. The row stays so the idempotent
+  -- generation pass cannot resurrect something that was deliberately cleared.
+  dismissed_at  INTEGER,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   seq           INTEGER NOT NULL DEFAULT 0

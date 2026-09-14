@@ -65,7 +65,7 @@ export function listNotifications(
   options: { unreadOnly?: boolean; limit?: number; since?: number } = {},
   db: Db = getDb(),
 ): AppNotification[] {
-  const where = ['user_id = ?'];
+  const where = ['user_id = ?', 'dismissed_at IS NULL'];
   const params: unknown[] = [userId];
   if (options.unreadOnly) where.push('read_at IS NULL');
   if (options.since) {
@@ -84,7 +84,7 @@ export function listNotifications(
 export function dueNotifications(userId: string, nowMs: number, lookaheadMs: number, db: Db = getDb()): AppNotification[] {
   const rows = all<NotificationRow>(
     `SELECT * FROM notifications
-      WHERE user_id = ? AND scheduled_for BETWEEN ? AND ? AND read_at IS NULL
+      WHERE user_id = ? AND scheduled_for BETWEEN ? AND ? AND read_at IS NULL AND dismissed_at IS NULL
       ORDER BY scheduled_for ASC LIMIT 100`,
     [userId, nowMs - 86_400_000, nowMs + lookaheadMs],
     db,
@@ -104,12 +104,51 @@ export function markAllRead(userId: string, db: Db = getDb()): void {
   ], db);
 }
 
+/**
+ * Dismissing is a soft delete.
+ *
+ * A hard delete would let the next generation pass re-create the very reminder
+ * the person just cleared; keeping the row (hidden from every read path) means a
+ * dismissal sticks without a separate tombstone table.
+ */
 export function deleteNotification(userId: string, id: string, db: Db = getDb()): void {
-  run('DELETE FROM notifications WHERE id = ? AND user_id = ?', [id, userId], db);
+  run('UPDATE notifications SET dismissed_at = ?, updated_at = ?, seq = ? WHERE id = ? AND user_id = ?', [
+    Date.now(),
+    Date.now(),
+    nextSeq(userId, db),
+    id,
+    userId,
+  ], db);
+}
+
+/** Dismisses every visible notification, optionally of a single kind. */
+export function dismissAll(userId: string, kind?: string | null, db: Db = getDb()): void {
+  const now = Date.now();
+  const seq = nextSeq(userId, db);
+  if (kind) {
+    run(
+      'UPDATE notifications SET dismissed_at = ?, updated_at = ?, seq = ? WHERE user_id = ? AND kind = ? AND dismissed_at IS NULL',
+      [now, now, seq, userId, kind],
+      db,
+    );
+    return;
+  }
+  run('UPDATE notifications SET dismissed_at = ?, updated_at = ?, seq = ? WHERE user_id = ? AND dismissed_at IS NULL', [
+    now,
+    now,
+    seq,
+    userId,
+  ], db);
 }
 
 export function unreadCount(userId: string, db: Db = getDb()): number {
-  return one<{ c: number }>('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND read_at IS NULL', [userId], db)?.c ?? 0;
+  return (
+    one<{ c: number }>(
+      'SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND read_at IS NULL AND dismissed_at IS NULL',
+      [userId],
+      db,
+    )?.c ?? 0
+  );
 }
 
 /** Removes stale reminders (task completed / rescheduled) so users aren't pinged twice. */

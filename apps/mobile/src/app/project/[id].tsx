@@ -5,11 +5,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { View } from 'react-native';
 import { TaskRow, priorityColor, formatMinutes } from '../../components/tasks';
+import { ApiError } from '../../lib/api';
 import {
   Badge,
   Button,
   Card,
   EmptyState,
+  ErrorBlock,
   LoadingBlock,
   ProgressBar,
   Row,
@@ -27,7 +29,7 @@ export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const palette = usePalette();
   const router = useRouter();
-  const { overview, isLoading, refetch } = useProject(id ?? null);
+  const { overview, isLoading, error, refetch } = useProject(id ?? null);
   const { complete } = useTaskMutations();
   const { dashboard } = useDashboard();
 
@@ -45,6 +47,20 @@ export default function ProjectDetailScreen() {
       <Screen edges={['top']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
         <LoadingBlock label="Loading project" />
+      </Screen>
+    );
+  }
+
+  if (error && !overview) {
+    const missing = error instanceof ApiError && error.status === 404;
+    return (
+      <Screen edges={['top']}>
+        <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
+        {missing ? (
+          <EmptyState icon="alert-circle-outline" title="Project not found" body="It may have been deleted." />
+        ) : (
+          <ErrorBlock message="This project could not be loaded." onRetry={() => void refetch()} />
+        )}
       </Screen>
     );
   }

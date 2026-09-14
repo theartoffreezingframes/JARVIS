@@ -94,6 +94,7 @@ export function useMatrix() {
     counts: query.data?.counts ?? { do_now: 0, schedule: 0, delegate: 0, eliminate: 0 },
     tasks: query.data?.tasks ?? [],
     isLoading: query.isLoading,
+    error: query.error,
     refetch: query.refetch,
   };
 }

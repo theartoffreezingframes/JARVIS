@@ -157,6 +157,9 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
     logger: options.logger === false ? false : { ...defaultLogger, ...overrides },
     trustProxy: config.trustProxy,
     bodyLimit: 2 * 1024 * 1024,
+    // Volume control only — credential scrubbing happens in the URL serializer
+    // above either way. (`logController` replaces this option in Fastify 6; the
+    // migration is a one-line change and the deprecation notice is cosmetic.)
     disableRequestLogging: config.isProduction,
   });
 

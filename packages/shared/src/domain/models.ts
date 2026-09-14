@@ -30,6 +30,12 @@ export interface User {
   timezoneOffsetMinutes: number;
   weekStartsOn: 0 | 1;
   use24Hour: boolean;
+  /** True when an identity provider (or a future verification flow) confirmed the address. */
+  emailVerified: boolean;
+  /** False for accounts created through Google Sign-In that have not chosen a password yet. */
+  hasPassword: boolean;
+  /** True when the account is linked to a Google account. */
+  hasGoogle: boolean;
   createdAt: number;
   updatedAt: number;
 }

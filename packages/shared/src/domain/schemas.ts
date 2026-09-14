@@ -96,6 +96,18 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(20),
 });
 
+/**
+ * Google Sign-In: the app posts the ID token it obtained through the OAuth 2.0
+ * + PKCE flow. The server verifies it against Google's public keys — nothing in
+ * this payload is trusted on its own.
+ */
+export const googleSignInSchema = z.object({
+  idToken: z.string().min(20).max(8192),
+  deviceName: z.string().max(80).nullish(),
+  timezone: z.string().max(64).default('UTC'),
+  timezoneOffsetMinutes: z.number().int().min(-840).max(840).default(0),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
 });
@@ -107,6 +119,17 @@ export const resetPasswordSchema = z.object({
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+});
+
+/**
+ * Same shape, but the current password may be omitted: an account created
+ * through Google Sign-In has no password yet, and proves ownership with the
+ * live session instead. The server enforces that rule — it still demands the
+ * current password for every account that has one.
+ */
+export const setPasswordSchema = z.object({
+  currentPassword: z.string().optional(),
   newPassword: passwordSchema,
 });
 

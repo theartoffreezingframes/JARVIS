@@ -16,7 +16,13 @@ export function useFocusStats() {
   const query = useQuery<{ stats: FocusStats; today: string }>(queryKeys.focusStats, () =>
     api.get<{ stats: FocusStats; today: string }>('/api/focus/stats'),
   );
-  return { stats: query.data?.stats, today: query.data?.today, isLoading: query.isLoading, refetch: query.refetch };
+  return {
+    stats: query.data?.stats,
+    today: query.data?.today,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
 export function useFocusSessions(params: { from?: string; to?: string; limit?: number } = {}) {
@@ -28,7 +34,7 @@ export function useFocusSessions(params: { from?: string; to?: string; limit?: n
   const query = useQuery<FocusSessionsResponse>(queryKeys.focusSessions(suffix), () =>
     api.get<FocusSessionsResponse>(`/api/focus/sessions?${suffix}`),
   );
-  return { sessions: query.data?.sessions ?? [], isLoading: query.isLoading, refetch: query.refetch };
+  return { sessions: query.data?.sessions ?? [], isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 /**
@@ -48,7 +54,13 @@ export function useFocusPresets() {
   const query = useQuery<FocusPresetsResponse>(queryKeys.focusPresets, () =>
     api.get<FocusPresetsResponse>('/api/focus/presets'),
   );
-  return { presets: query.data?.presets?.length ? query.data.presets : OFFLINE_PRESETS };
+  return {
+    presets: query.data?.presets?.length ? query.data.presets : OFFLINE_PRESETS,
+    // Presets fall back to the built-in shapes above, so a failure here is worth
+    // reporting but never blocks the timer.
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
 export function useFocusMutations() {

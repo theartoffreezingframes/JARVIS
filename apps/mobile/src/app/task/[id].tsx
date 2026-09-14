@@ -18,6 +18,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   Field,
   Input,
   LoadingBlock,
@@ -29,6 +30,7 @@ import {
   SwitchRow,
   Type,
 } from '../../components/ui';
+import { ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { useProjects, useNotes, useNoteMutations } from '../../hooks/useLibrary';
 import { describeFailure, useTask, useTaskMutations } from '../../hooks/useTasks';
@@ -42,7 +44,7 @@ export default function TaskDetailScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { settings } = useAuth();
-  const { data: task, refetch } = useTask(id ?? null);
+  const { data: task, error, isLoading, refetch } = useTask(id ?? null);
   const { projects } = useProjects();
   const mutations = useTaskMutations();
   const { notes } = useNotes({ taskId: id });
@@ -70,12 +72,21 @@ export default function TaskDetailScreen() {
   const today = useMemo(() => new Date(Date.now()).toISOString().slice(0, 10), []);
 
   if (!task) {
+    const missing = error instanceof ApiError && error.status === 404;
     return (
       <Screen edges={['top']}>
         <Row justify="space-between">
           <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
         </Row>
-        <LoadingBlock label="Loading task" />
+        {isLoading ? (
+          <LoadingBlock label="Loading task" />
+        ) : missing ? (
+          <EmptyState icon="alert-circle-outline" title="Task not found" body="It may have been deleted." />
+        ) : error ? (
+          <ErrorBlock message="This task could not be loaded." onRetry={() => void refetch()} />
+        ) : (
+          <EmptyState icon="alert-circle-outline" title="Task not found" body="It may have been deleted." />
+        )}
       </Screen>
     );
   }

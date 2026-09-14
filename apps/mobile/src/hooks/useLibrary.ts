@@ -50,7 +50,7 @@ export function useProjectMutations() {
 
 export function useTags() {
   const query = useQuery<{ tags: Tag[] }>('tags', () => api.get<{ tags: Tag[] }>('/api/tags'));
-  return { tags: query.data?.tags ?? [], refetch: query.refetch };
+  return { tags: query.data?.tags ?? [], error: query.error, refetch: query.refetch };
 }
 
 export function useNotes(filters: { search?: string; projectId?: string | null; taskId?: string } = {}) {
