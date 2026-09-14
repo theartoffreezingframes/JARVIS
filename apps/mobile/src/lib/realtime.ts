@@ -139,6 +139,25 @@ class RealtimeClient {
     this.closing = false;
     void this.connect();
   }
+
+  /**
+   * Foreground recovery.
+   *
+   * A phone that slept has a closed socket and possibly a long backoff pending.
+   * Returning to the foreground is the moment to try immediately instead of
+   * waiting out the timer, and to forget how many attempts failed while the app
+   * was in the background.
+   */
+  ensureConnected(): void {
+    if (this.closing) return;
+    if (this.socket && this.socket.readyState <= WebSocket.OPEN) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
+    void this.connect();
+  }
 }
 
 export const realtime = new RealtimeClient();

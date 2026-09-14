@@ -102,8 +102,26 @@ a malicious mail provider.
   known placeholder; weak-secret boot enforcement is covered by a test that spawns a real process.
 - Request logging is disabled in production (`disableRequestLogging`), and error responses are
   sanitised: 5xx bodies contain `{error, message, requestId}` with the stack kept in the server log.
-- Reset tokens are never returned in production responses and never logged; email addresses are
-  redacted in mail logs.
+- **Request URLs are sanitised before they are logged.** Query strings are the one place a
+  credential legitimately appears in a URL — the WebSocket handshake is `/realtime?token=…` because a
+  handshake cannot set headers, and the emailed link is `/reset-password?token=…`. `lib/sanitize.ts`
+  keeps the path and the parameter *names* an operator needs, and replaces the values of anything
+  credential-shaped (`token`, `access_token`, `password`, `secret`, `key`, `code`, …) with
+  `[redacted]`. `apps/api/tests/logging.test.ts` boots the server with a real logger writing to a
+  stream and fails if any of those values reaches it.
+- A pino redaction net (`LOG_REDACT_PATHS`) additionally censors credential-shaped *fields*
+  (`authorization`, `*.password`, `*.token`, `*.jwt`, `*.apiKey`, …) on anything a future log line
+  might pass in.
+- **No REST route accepts a token in the query string.** Only the WebSocket gateway parses its own
+  `?token=`, so a URL cannot be used to authenticate an API call (it returns 401).
+- Third-party text (push-service and mail-provider responses) is scrubbed of JWT-shaped and
+  `ExponentPushToken[...]`-shaped strings before it is logged; recipient addresses are redacted.
+- Reset tokens are never returned in production responses and never logged.
+- SQLite constraint failures return a generic client message instead of the driver text, which names
+  tables and columns.
+- `db/seed` and `db/reset` refuse to run with `NODE_ENV=production` unless `JARVIS_ALLOW_PROD_SEED` /
+  `JARVIS_ALLOW_PROD_RESET` is set: the demo account has a published password and the reset script
+  deletes every real account.
 
 ## 8. Deletion and export
 
@@ -130,6 +148,10 @@ a malicious mail provider.
 | Account deletion left all content behind under an anonymised row | Medium | True cascading deletion with group-ownership transfer |
 | `.gitignore` did not cover `*.keystore`, FCM/Play credential files or env variants | Low | Patterns added at the repository root |
 | `GET /api/focus/presets` returned an empty array | Low (fake feature) | Returns real presets derived from account settings, with an offline fallback in the client |
+| Access tokens and password-reset tokens were written to logs inside request URLs (`/realtime?token=…`, `/reset-password?token=…`) | Medium (log disclosure) | Request-URL sanitisation plus a redaction net; verified by `apps/api/tests/logging.test.ts` |
+| Any REST route accepted `?token=` as authentication | Low | Query-string auth removed from the API; the WebSocket handshake keeps its own parser |
+| SQLite constraint text (table and column names) was returned to clients | Low | Replaced with a generic message |
+| The demo seed and database-reset scripts could be run against a production database | Low | Both refuse when `NODE_ENV=production` unless explicitly forced |
 
 ## 10. Known, accepted limitations
 

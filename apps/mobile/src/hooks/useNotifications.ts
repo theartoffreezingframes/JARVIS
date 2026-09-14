@@ -157,6 +157,7 @@ export function useNotificationFeed() {
     unreadCount: query.data?.unreadCount ?? 0,
     preferences: query.data?.preferences,
     isLoading: query.isLoading,
+    error: query.error,
     refetch: query.refetch,
     markRead,
     readAll,

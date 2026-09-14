@@ -17,6 +17,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   LoadingBlock,
   Row,
   Screen,
@@ -64,7 +65,7 @@ export default function CalendarScreen() {
     return { from: shiftDay(monthStart, -7), to: shiftDay(monthStart, 37) };
   }, [anchor, view, weekStartsOn]);
 
-  const { calendar, isLoading, refetch } = useCalendar(from, to, view);
+  const { calendar, isLoading, error, refetch } = useCalendar(from, to, view);
   const use24Hour = settings?.use24Hour ?? false;
 
   const dayGrid = useMemo(() => {
@@ -165,6 +166,10 @@ export default function CalendarScreen() {
       />
 
       {isLoading && !calendar ? <LoadingBlock label="Loading calendar" /> : null}
+
+      {!isLoading && !calendar && error ? (
+        <ErrorBlock message="The calendar could not be loaded." onRetry={() => void refetch()} />
+      ) : null}
 
       {view === 'month' ? (
         <Card>

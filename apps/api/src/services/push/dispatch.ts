@@ -3,6 +3,7 @@ import { config } from '../../env.js';
 import { deletePushTokens, listPushTokens } from '../../repo/push.js';
 import { parseSettings } from '../../repo/mappers.js';
 import { findUserById, getSettingsRow } from '../../repo/users.js';
+import { redactSecretsInText } from '../../lib/sanitize.js';
 import { fetchExpoReceipts, isValidPushToken, sendExpoPush, type ExpoPushMessage } from './expo.js';
 
 /**
@@ -108,7 +109,9 @@ export async function dispatchPushToUser(userId: string, input: PushDispatchInpu
     const removed = deletePushTokens(outcome.invalidTokens);
     console.log(`[push] removed ${removed} token(s) the push service reported as unregistered`);
   }
-  if (outcome.error) console.error(`[push] ${outcome.error}`);
+  // Provider responses are third-party text: scrub anything credential-shaped
+  // before it reaches the log.
+  if (outcome.error) console.error(`[push] ${redactSecretsInText(outcome.error)}`);
   for (const ticket of outcome.tickets) pendingReceipts.set(ticket.id, { token: ticket.token, at: Date.now() });
   ensureReceiptPolling();
   return outcome.accepted;
@@ -166,7 +169,11 @@ export async function checkReceipts(): Promise<void> {
     if (!entry) continue;
     if (receipt.status === 'error') {
       if (receipt.details?.error === 'DeviceNotRegistered') invalid.push(entry.token);
-      else console.error(`[push] receipt error: ${receipt.message ?? receipt.details?.error ?? 'unknown'}`);
+      else {
+        console.error(
+          `[push] receipt error: ${redactSecretsInText(receipt.message ?? receipt.details?.error ?? 'unknown')}`,
+        );
+      }
     }
   }
   // Tickets without a receipt yet stay queued, but not forever.

@@ -564,7 +564,7 @@ export function ErrorBlock({ message, onRetry }: { message: string; onRetry?: ()
         <Ionicons name="cloud-offline-outline" size={20} color={palette.danger} />
         <Stack gap={2} style={{ flex: 1 }}>
           <Type variant="bodyStrong">{message}</Type>
-          <Type variant="caption">Your data is safe — we will retry automatically.</Type>
+          <Type variant="caption">Nothing was lost. Retry now, or keep working — the app retries when it returns to the foreground.</Type>
         </Stack>
       </Row>
       {onRetry ? (

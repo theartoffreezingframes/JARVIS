@@ -3,16 +3,34 @@
  */
 import { useRouter } from 'expo-router';
 import { Badge, Button, Card, Row, Screen, SectionHeader, Stack, Type } from '../../components/ui';
-import { API_BASE_URL } from '../../lib/api';
+import { api, API_BASE_URL } from '../../lib/api';
 import { useOfflineStatus } from '../../lib/offline';
+import { useQuery } from '../../lib/query';
 import { useRealtimeStatus } from '../../lib/realtime';
 import { spacing, usePalette } from '../../lib/theme';
+
+interface HealthPayload {
+  capabilities?: { email?: string; push?: boolean };
+}
 
 export default function AboutScreen() {
   const palette = usePalette();
   const router = useRouter();
   const offline = useOfflineStatus();
   const realtime = useRealtimeStatus();
+
+  // The reset-delivery line below must describe *this* server, not the one the
+  // app was developed against, so it is read from the live capability report.
+  const health = useQuery<HealthPayload>('about-health', () => api.get<HealthPayload>('/api/health'), {
+    staleTime: 5 * 60_000,
+  });
+  const emailProvider = health.data?.capabilities?.email;
+  const emailLine =
+    emailProvider === undefined
+      ? 'Checking how this server delivers password-reset email…'
+      : emailProvider === 'none'
+        ? 'Password resets: this server has no mail provider configured, so a reset link cannot be emailed. An administrator has to set the JARVIS_EMAIL_* variables before sign-in recovery can work for real users.'
+        : `Password resets are emailed by this server's configured provider (${emailProvider}).`;
 
   return (
     <Screen edges={['top']}>
@@ -98,8 +116,7 @@ export default function AboutScreen() {
         <Card>
           <Stack gap={spacing.sm}>
             <Type variant="caption" color={palette.textMuted}>
-              • Automatic email delivery for password resets — this deployment has no mail provider, so the reset token is
-              shown in the app instead of being emailed.
+              • {emailLine}
             </Type>
             <Type variant="caption" color={palette.textMuted}>
               • Google and Apple sign-in — email and password are complete; the schema already separates credentials from

@@ -645,6 +645,16 @@ export async function seed(): Promise<void> {
 }
 
 const isDirectRun = process.argv[1]?.includes('seed');
+if (isDirectRun && process.env.NODE_ENV === 'production' && process.env.JARVIS_ALLOW_PROD_SEED !== 'true') {
+  // Demo accounts share a published password, so seeding them into a production
+  // database would hand anyone a working login. Refuse unless explicitly forced.
+  // eslint-disable-next-line no-console
+  console.error(
+    'Refusing to seed demo data with NODE_ENV=production: demo@jarvis.app has a published password.\n' +
+      'Set JARVIS_ALLOW_PROD_SEED=true only if this deployment really is a throwaway demo.',
+  );
+  process.exit(1);
+}
 if (isDirectRun) {
   seed()
     .then(() => {

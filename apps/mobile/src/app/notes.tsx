@@ -10,6 +10,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   Field,
   Input,
   LoadingBlock,
@@ -34,7 +35,7 @@ export default function NotesScreen() {
   const [noteProject, setNoteProject] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const { notes, isLoading, refetch } = useNotes({ search: search || undefined, projectId });
+  const { notes, isLoading, error, refetch } = useNotes({ search: search || undefined, projectId });
   const { projects } = useProjects();
   const mutations = useNoteMutations();
 
@@ -73,7 +74,11 @@ export default function NotesScreen() {
 
       {isLoading && notes.length === 0 ? <LoadingBlock label="Loading notes" /> : null}
 
-      {!isLoading && notes.length === 0 ? (
+      {!isLoading && error && notes.length === 0 ? (
+        <ErrorBlock message="Your notes could not be loaded." onRetry={() => void refetch()} />
+      ) : null}
+
+      {!isLoading && !error && notes.length === 0 ? (
         <EmptyState
           icon="document-text-outline"
           title={search ? 'No matching notes' : 'No notes yet'}

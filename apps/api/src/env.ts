@@ -131,6 +131,8 @@ export interface EmailConfig {
   readonly provider: EmailProviderKind;
   readonly from: string;
   readonly replyTo: string | null;
+  /** Abort a provider request that takes longer than this (default 10 s). */
+  readonly timeoutMs: number;
   readonly smtp: {
     readonly host: string;
     readonly port: number;
@@ -151,6 +153,7 @@ const email: EmailConfig = {
   provider: emailProviderKind,
   from: process.env.JARVIS_EMAIL_FROM ?? 'JARVIS <no-reply@localhost>',
   replyTo: process.env.JARVIS_EMAIL_REPLY_TO ?? null,
+  timeoutMs: parseInteger(process.env.JARVIS_EMAIL_TIMEOUT_MS, 10_000, 1_000, 120_000),
   smtp: {
     host: process.env.JARVIS_SMTP_HOST ?? '',
     port: parseInteger(process.env.JARVIS_SMTP_PORT, 587, 1, 65_535),

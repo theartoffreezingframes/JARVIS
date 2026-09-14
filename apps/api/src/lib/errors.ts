@@ -94,7 +94,10 @@ export function serializeError(error: unknown): { status: number; body: Record<s
     return { status: 409, body: { error: 'conflict', message: 'That value is already taken' } };
   }
   if (maybeSqlite?.code?.startsWith('SQLITE_CONSTRAINT')) {
-    return { status: 400, body: { error: 'bad_request', message: maybeSqlite.message ?? 'Invalid data' } };
+    // SQLite names the failing table and column ("NOT NULL constraint failed:
+    // tasks.title"); that is internal schema detail, so the client gets a plain
+    // message. Validation happens in zod before we reach the database anyway.
+    return { status: 400, body: { error: 'bad_request', message: 'That change conflicts with the current data' } };
   }
   if (maybeSqlite?.code === 'rate_limited') {
     return {

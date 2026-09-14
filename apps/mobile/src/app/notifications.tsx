@@ -9,7 +9,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Alert, View } from 'react-native';
-import { Badge, Button, Card, EmptyState, LoadingBlock, Row, Screen, SectionHeader, Stack, SwitchRow, Type } from '../components/ui';
+import { Badge, Button, Card, EmptyState, ErrorBlock, LoadingBlock, Row, Screen, SectionHeader, Stack, SwitchRow, Type } from '../components/ui';
 import { useNotificationFeed } from '../hooks/useNotifications';
 import { useAuth } from '../lib/auth';
 import { spacing, usePalette } from '../lib/theme';
@@ -42,7 +42,8 @@ export default function NotificationsScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { settings, updateSettings } = useAuth();
-  const { notifications, scheduled, unreadCount, isLoading, markRead, readAll, remove, refetch } = useNotificationFeed();
+  const { notifications, scheduled, unreadCount, isLoading, error, markRead, readAll, remove, refetch } =
+    useNotificationFeed();
 
   const prefs = (settings?.notifications ?? null) as (NotificationPrefs & { quietHoursStart?: string | null }) | null;
 
@@ -77,7 +78,11 @@ export default function NotificationsScreen() {
 
       {isLoading && notifications.length === 0 ? <LoadingBlock label="Loading notifications" /> : null}
 
-      {!isLoading && notifications.length === 0 ? (
+      {!isLoading && error && notifications.length === 0 ? (
+        <ErrorBlock message="Notifications could not be loaded." onRetry={() => void refetch()} />
+      ) : null}
+
+      {!isLoading && !error && notifications.length === 0 ? (
         <EmptyState
           icon="notifications-off-outline"
           title="Nothing here yet"

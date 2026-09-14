@@ -17,6 +17,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   Field,
   Input,
   LoadingBlock,
@@ -37,7 +38,7 @@ export default function ReviewScreen() {
   const { day } = useLocalSearchParams<{ day?: string }>();
   const palette = usePalette();
   const router = useRouter();
-  const { day: review, target, tomorrow, save, isLoading, refetch, history } = useDailyReview(day ?? undefined);
+  const { day: review, target, tomorrow, save, isLoading, error, refetch, history } = useDailyReview(day ?? undefined);
   const { complete } = useTaskMutations();
 
   const [reflection, setReflection] = useState('');
@@ -61,6 +62,15 @@ export default function ReviewScreen() {
       <Screen edges={['top']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
         <LoadingBlock label="Loading your day" />
+      </Screen>
+    );
+  }
+
+  if (error && !review) {
+    return (
+      <Screen edges={['top']}>
+        <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
+        <ErrorBlock message="This review could not be loaded." onRetry={() => void refetch()} />
       </Screen>
     );
   }

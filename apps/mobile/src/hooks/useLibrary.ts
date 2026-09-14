@@ -15,6 +15,7 @@ export function useProjects(includeArchived = false) {
     projects: query.data?.projects ?? [],
     summary: query.data?.summary,
     isLoading: query.isLoading,
+    error: query.error,
     refetch: query.refetch,
   };
 }
@@ -24,7 +25,7 @@ export function useProject(projectId: string | null) {
     projectId ? queryKeys.project(projectId) : null,
     () => api.get<ProjectOverviewResponse>(`/api/projects/${projectId}/overview`),
   );
-  return { overview: query.data, isLoading: query.isLoading, refetch: query.refetch };
+  return { overview: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 export function useProjectMutations() {
@@ -62,7 +63,7 @@ export function useNotes(filters: { search?: string; projectId?: string | null; 
   const query = useQuery<NotesResponse>(queryKeys.notes(suffix), () => api.get<NotesResponse>(`/api/notes${suffix ? `?${suffix}` : ''}`), {
     staleTime: 15_000,
   });
-  return { notes: query.data?.notes ?? [], isLoading: query.isLoading, refetch: query.refetch };
+  return { notes: query.data?.notes ?? [], isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 export function useNoteMutations() {
@@ -116,5 +117,7 @@ export function useGlobalSearch(query: string, filters: { types?: string[]; stat
     counts: result.data?.counts,
     suggestions: suggestions.data?.suggestions ?? [],
     isSearching: result.isFetching,
+    error: result.error,
+    refetch: result.refetch,
   };
 }

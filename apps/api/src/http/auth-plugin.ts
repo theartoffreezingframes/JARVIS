@@ -27,9 +27,10 @@ export function bearerToken(request: FastifyRequest): string | null {
   if (header?.startsWith('Bearer ')) return header.slice(7).trim();
   const cookie = (request as FastifyRequest & { cookies?: Record<string, string> }).cookies?.jarvis_at;
   if (cookie) return cookie;
-  // WebSocket handshakes cannot set headers; the gateway passes a token instead.
-  const query = request.query as Record<string, unknown> | undefined;
-  if (query && typeof query.token === 'string') return query.token;
+  // Deliberately no `?token=` support here: a token in a URL ends up in access
+  // logs, browser history and referrers. The WebSocket handshake is the one place
+  // that cannot use a header, and the gateway parses its own token (see
+  // realtime/gateway.ts) instead of going through this function.
   return null;
 }
 

@@ -27,6 +27,7 @@ unless you tap **Try demo data** inside your own account.
 - [Tests and verification](#tests-and-verification)
 - [Security](#security)
 - [Known limitations](#known-limitations)
+- [Real-device test checklist](docs/DEVICE-TESTS.md)
 - [Contributing](#contributing)
 
 ---
@@ -96,7 +97,7 @@ apps/api          Fastify API: routes, repos (SQL access), services (business lo
 apps/mobile       Expo app: src/app (screens, expo-router), src/components, src/hooks,
                   src/lib (api, auth, sync, offline, timer, theme, push)
 packages/shared   Domain models, zod schemas and pure logic used by both sides
-docs/             Deployment, release and security documentation
+docs/             Deployment, release, security and the real-device test checklist
 ```
 
 ## Run it locally
@@ -233,8 +234,15 @@ npm run typecheck     # shared, api and mobile — all strict TypeScript
 
 The API suite boots the real server against a temporary SQLite file: routing, validation,
 authentication, authorisation, sync conflicts, gang clock behaviour, rate limits, push
-registrations, password reset (with a captured email transport) and restart durability are all
-exercised. Anything that has not been run is not claimed as working.
+registrations, password reset (with a captured email transport), log hygiene and restart
+durability are all exercised. Anything that has not been run is not claimed as working.
+
+**Physical-device testing is outstanding.** The automated suites run headless and cannot prove
+rendering, system permissions, radio switching, notification delivery to the system tray or
+two-device realtime behaviour. The complete manual script — including the two-device Gang Timer
+matrix and the offline/reconnect cases — is **[docs/DEVICE-TESTS.md](docs/DEVICE-TESTS.md)**, and
+it is explicitly marked as not yet executed. Treat the app as release-candidate until that
+checklist is green on real hardware.
 
 ## Security
 

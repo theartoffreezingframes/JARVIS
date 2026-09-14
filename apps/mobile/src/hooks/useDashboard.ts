@@ -87,6 +87,7 @@ export function usePlanner(day?: string) {
     today,
     target,
     isLoading: query.isLoading,
+    error: query.error,
     refetch: query.refetch,
     save,
     quickPlan,
@@ -101,7 +102,7 @@ export function useCalendar(from: string, to: string, view: 'month' | 'week' | '
   const query = useQuery<CalendarResponse>(key, () => api.get<CalendarResponse>(`/api/calendar?from=${from}&to=${to}&view=${view}`), {
     staleTime: 60_000,
   });
-  return { calendar: query.data, isLoading: query.isLoading, refetch: query.refetch };
+  return { calendar: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 /** Moves a task to another day by rewriting its due date (the calendar's drag action). */
@@ -116,7 +117,7 @@ export function useAnalytics(range: 'week' | 'month' | 'quarter' | 'year') {
   const query = useQuery<AnalyticsResponse>(queryKeys.analytics(range), () =>
     api.get<AnalyticsResponse>(`/api/analytics/overview?range=${range}`),
   );
-  return { analytics: query.data, isLoading: query.isLoading, refetch: query.refetch };
+  return { analytics: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 export function useHeatmap(
@@ -128,7 +129,7 @@ export function useHeatmap(
     () => api.get<HeatmapResponse>(`/api/analytics/heatmap?metric=${metric}&range=${range}`),
     { staleTime: 60_000 },
   );
-  return { heatmap: query.data, isLoading: query.isLoading, refetch: query.refetch };
+  return { heatmap: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 export function useDailyReview(day?: string) {
@@ -172,6 +173,7 @@ export function useDailyReview(day?: string) {
     history: history.data?.reviews ?? [],
     tomorrow: addDays(target, 1),
     isLoading: dayQuery.isLoading,
+    error: dayQuery.error,
     refetch: dayQuery.refetch,
     save,
   };

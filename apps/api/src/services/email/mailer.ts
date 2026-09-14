@@ -1,4 +1,5 @@
 import { config } from '../../env.js';
+import { redactSecretsInText } from '../../lib/sanitize.js';
 import { redact, resolveTransport } from './index.js';
 import type { EmailMessage, EmailSendResult } from './transport.js';
 
@@ -54,7 +55,9 @@ export async function sendPasswordResetEmail(mail: PasswordResetMail): Promise<E
   const result = await transport.send(passwordResetMessage(mail));
   if (!result.ok) {
     // Log the address redacted and never the token or URL.
-    console.error(`[email] password reset delivery failed for ${redact(mail.to)} via ${transport.kind}: ${result.error}`);
+    console.error(
+      `[email] password reset delivery failed for ${redact(mail.to)} via ${transport.kind}: ${redactSecretsInText(result.error ?? 'unknown error')}`,
+    );
   } else {
     console.log(`[email] password reset sent to ${redact(mail.to)} via ${transport.kind}`);
   }

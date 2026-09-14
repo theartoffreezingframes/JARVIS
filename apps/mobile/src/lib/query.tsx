@@ -9,6 +9,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
+import { realtime } from './realtime';
 import { ApiError } from './api';
 import { storageKeys } from './storage';
 import { refreshFocusTimerFromClock } from './timer';
@@ -225,6 +226,8 @@ export function useForegroundRefresh(): void {
       if (state !== 'active') return;
       invalidate(...PERSIST_PREFIXES);
       void refreshFocusTimerFromClock();
+      // Reconnect immediately rather than waiting out a background backoff.
+      realtime.ensureConnected();
     });
     return () => subscription.remove();
   }, []);

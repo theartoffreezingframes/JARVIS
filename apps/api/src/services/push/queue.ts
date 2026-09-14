@@ -1,4 +1,5 @@
 import { config } from '../../env.js';
+import { redactSecretsInText } from '../../lib/sanitize.js';
 import { dispatchNotificationPush, type PushableNotification } from './dispatch.js';
 
 /**
@@ -14,7 +15,8 @@ export function queueNotificationPush(userId: string, notification: PushableNoti
   if (!config.push.enabled) return;
   setImmediate(() => {
     void dispatchNotificationPush(userId, notification).catch((error: unknown) => {
-      console.error('[push] unexpected dispatch failure', error instanceof Error ? error.message : error);
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error('[push] unexpected dispatch failure', redactSecretsInText(detail));
     });
   });
 }

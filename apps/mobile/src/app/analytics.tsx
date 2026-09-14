@@ -17,6 +17,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   LoadingBlock,
   ProgressBar,
   Row,
@@ -46,7 +47,7 @@ export default function AnalyticsScreen() {
   const [heatRange, setHeatRange] = useState<'week' | 'month' | 'year'>('month');
   const [selectedDay, setSelectedDay] = useState<HeatmapCell | null>(null);
 
-  const { analytics, isLoading } = useAnalytics(range);
+  const { analytics, isLoading, error, refetch } = useAnalytics(range);
   const { heatmap } = useHeatmap(metric, heatRange);
   const { stats } = useFocusStats();
   const { dashboard } = useDashboard();
@@ -56,6 +57,15 @@ export default function AnalyticsScreen() {
       <Screen edges={['top']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
         <LoadingBlock label="Crunching numbers" />
+      </Screen>
+    );
+  }
+
+  if (error && !analytics) {
+    return (
+      <Screen edges={['top']}>
+        <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
+        <ErrorBlock message="Analytics could not be loaded." onRetry={() => void refetch()} />
       </Screen>
     );
   }

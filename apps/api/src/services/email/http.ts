@@ -24,7 +24,7 @@ export class HttpTransport implements EmailTransport {
   async send(message: EmailMessage): Promise<EmailSendResult> {
     const { vendor, url, apiKey } = this.email.http;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), config.push.timeoutMs);
+    const timer = setTimeout(() => controller.abort(), config.email.timeoutMs);
     try {
       const response = await fetch(url, {
         method: 'POST',

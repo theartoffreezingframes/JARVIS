@@ -18,6 +18,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ErrorBlock,
   LoadingBlock,
   ProgressBar,
   Row,
@@ -48,7 +49,7 @@ export default function PlannerScreen() {
   const params = useLocalSearchParams<{ day?: string }>();
   const { settings } = useAuth();
   const [day, setDay] = useState<string | null>(params.day ?? null);
-  const { planner, save, scheduleBlocks, unschedule, isLoading, refetch } = usePlanner(day ?? undefined);
+  const { planner, save, scheduleBlocks, unschedule, isLoading, error, refetch } = usePlanner(day ?? undefined);
   const { complete, update } = useTaskMutations();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -108,6 +109,15 @@ export default function PlannerScreen() {
       <Screen edges={['top']}>
         <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
         <LoadingBlock label="Building the day" />
+      </Screen>
+    );
+  }
+
+  if (error && !planner) {
+    return (
+      <Screen edges={['top']}>
+        <Button label="Back" variant="ghost" icon="chevron-back" onPress={() => router.back()} />
+        <ErrorBlock message="Your plan could not be loaded." onRetry={() => void refetch()} />
       </Screen>
     );
   }

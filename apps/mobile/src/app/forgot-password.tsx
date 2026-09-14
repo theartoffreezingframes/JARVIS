@@ -3,9 +3,12 @@
  *
  * Step 1 asks for the email and always reports success (so the screen cannot be
  * used to discover which addresses exist). Step 2 accepts the reset token and a
- * new password. In this deployment the API hands the token back directly when
- * email delivery is not configured, which the screen states plainly rather than
- * pretending an email was sent.
+ * new password.
+ *
+ * Whether a mail is actually sent depends on the server's configuration, and the
+ * screen follows what the API reports: with a provider configured the user is told
+ * to check their inbox, and only a server with email deliberately disabled (a
+ * development machine) hands the token back for the app to display.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';

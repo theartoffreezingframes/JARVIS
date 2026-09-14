@@ -17,6 +17,7 @@ import { api } from './api';
 import { enqueueOperation, isOfflineError } from './offline';
 import { invalidate } from './query';
 import { readJson, writeJson, storageKeys } from './storage';
+import { elapsedSecondsAt, hasExpiredAt, progressAt, remainingMsAt } from './timer-math';
 import { todayKey } from '@jarvis/shared';
 
 export type FocusPhase = 'focus' | 'short_break' | 'long_break';
@@ -154,10 +155,13 @@ export function getFocusTimerState(): FocusTimerState {
   return state;
 }
 
-export function remainingMs(current: FocusTimerState = state): number {
-  if (!current.running && current.pausedRemainingMs !== null) return current.pausedRemainingMs;
-  if (current.endsAt === null) return current.phasePlannedSeconds * 1000;
-  return Math.max(0, current.endsAt - Date.now());
+export function remainingMs(current: FocusTimerState = state, now: number = Date.now()): number {
+  return remainingMsAt(current, now);
+}
+
+/** True when the running phase has passed its stored end timestamp. */
+export function phaseHasExpired(now: number = Date.now()): boolean {
+  return hasExpiredAt(state, now);
 }
 
 export function useFocusTimerState(): FocusTimerState {
@@ -380,12 +384,8 @@ export function resumeFocus(): void {
   if (state.endsAt !== null) scheduleNotification('Focus complete', 'Your session is finishing.', state.endsAt);
 }
 
-export function elapsedSeconds(): number {
-  if (!state.startedAt) return 0;
-  if (state.running && state.endsAt !== null) {
-    return state.phasePlannedSeconds - Math.round(Math.max(0, state.endsAt - Date.now()) / 1000);
-  }
-  return state.accruedSeconds;
+export function elapsedSeconds(now: number = Date.now()): number {
+  return elapsedSecondsAt(state, now);
 }
 
 /** Stops the current phase early, keeping the time actually spent. */
@@ -525,9 +525,7 @@ export async function startBreak(long = false): Promise<void> {
 }
 
 export function focusTimerProgress(current: FocusTimerState = state): number {
-  const total = current.phasePlannedSeconds * 1000;
-  if (total <= 0) return 0;
-  return Math.max(0, Math.min(1, 1 - remainingMs(current) / total));
+  return progressAt(current, Date.now());
 }
 
 export function formatDuration(ms: number): string {

@@ -1,13 +1,14 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 import { capabilityReport, config } from './env.js';
 import { migrate } from './db/index.js';
 import { consume, clientKey } from './http/rate-limit.js';
 import { sendError, serializeError } from './lib/errors.js';
+import { LOG_REDACT_PATHS, sanitizeUrl } from './lib/sanitize.js';
 import { registerRealtime, type RealtimeBus } from './realtime/gateway.js';
 import { registerAnalyticsRoutes } from './routes/analytics.js';
 import { registerAuthRoutes } from './routes/auth.js';
@@ -115,7 +116,13 @@ function healthPayload(realtime: RealtimeBus): Record<string, unknown> {
 }
 
 export interface BuildServerOptions {
-  logger?: boolean;
+  /**
+   * `false` silences logging entirely (used by most tests). An object is merged on
+   * top of the default configuration, so a caller can supply a destination stream
+   * to assert on what the API actually writes to its logs — the serializers and
+   * redaction rules below still apply.
+   */
+  logger?: boolean | FastifyServerOptions['logger'];
   migrateDatabase?: boolean;
 }
 
@@ -123,17 +130,31 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
   app: FastifyInstance;
   realtime: RealtimeBus;
 }> {
+  const overrides = typeof options.logger === 'object' && options.logger !== null ? options.logger : {};
+  const defaultLogger = {
+    level: config.logLevel,
+    // A caller-supplied stream (tests) and pino-pretty are mutually exclusive.
+    transport:
+      overrides.stream || config.isProduction || !hasPrettyPrinter()
+        ? undefined
+        : { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } },
+    // A request URL can carry credentials (the realtime handshake and the reset
+    // page both use `?token=`), so the logged URL is sanitised and a redaction net
+    // catches credential-shaped fields on anything else.
+    serializers: {
+      req(request: { method: string; url: string; ip?: string; socket?: { remoteAddress?: string } }) {
+        return {
+          method: request.method,
+          url: sanitizeUrl(request.url),
+          ip: request.ip ?? request.socket?.remoteAddress,
+        };
+      },
+    },
+    redact: { paths: LOG_REDACT_PATHS, censor: '[redacted]' },
+  };
+
   const app = Fastify({
-    logger:
-      options.logger === false
-        ? false
-        : {
-            level: config.logLevel,
-            // Quiet, readable development logs; structured JSON in production.
-            transport: config.isProduction || !hasPrettyPrinter()
-              ? undefined
-              : { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } },
-          },
+    logger: options.logger === false ? false : { ...defaultLogger, ...overrides },
     trustProxy: config.trustProxy,
     bodyLimit: 2 * 1024 * 1024,
     disableRequestLogging: config.isProduction,
@@ -205,9 +226,9 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
     if (status >= 500) {
       // Full detail (including the stack) stays in the server log; the client
       // receives only the generic message produced by serializeError.
-      request.log.error({ err: error, requestId, url: request.url }, 'unhandled error');
+      request.log.error({ err: error, requestId, url: sanitizeUrl(request.url) }, 'unhandled error');
     } else if (status === 429) {
-      request.log.warn({ requestId, url: request.url, ip: request.ip }, 'rate limited');
+      request.log.warn({ requestId, url: sanitizeUrl(request.url), ip: request.ip }, 'rate limited');
     }
     void reply.status(status).send({ ...body, requestId });
   });

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Badge, Button, Card, Chip, EmptyState, Input, LoadingBlock, Row, Screen, SectionHeader, Stack, Type } from '../components/ui';
+import { Badge, Button, Card, Chip, EmptyState, ErrorBlock, Input, LoadingBlock, Row, Screen, SectionHeader, Stack, Type } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useGlobalSearch, useProjects } from '../hooks/useLibrary';
 import { spacing, usePalette } from '../lib/theme';
@@ -28,7 +28,7 @@ export default function SearchScreen() {
   const [projectId, setProjectId] = useState<string | null>(null);
 
   const { projects } = useProjects();
-  const { results, counts, suggestions, isSearching } = useGlobalSearch(query, {
+  const { results, counts, suggestions, isSearching, error, refetch } = useGlobalSearch(query, {
     types: types.length ? types : undefined,
     priority: priority ?? undefined,
     status: status ?? undefined,
@@ -136,6 +136,8 @@ export default function SearchScreen() {
         </Stack>
       ) : isSearching ? (
         <LoadingBlock label="Searching" />
+      ) : error && results.length === 0 ? (
+        <ErrorBlock message="Search could not reach the server." onRetry={() => void refetch()} />
       ) : results.length === 0 ? (
         <EmptyState
           icon="search-outline"
