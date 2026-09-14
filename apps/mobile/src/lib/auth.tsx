@@ -9,6 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { UserSettings } from '@jarvis/shared';
 import { api, ApiError, setSessionExpiredHandler } from './api';
 import { clearLocalData, readJson, tokenStore, writeJson, storageKeys } from './storage';
+import { setOfflineOwner } from './offline';
 import { unregisterFromPush } from './push';
 import type { DeepPartial } from './types';
 import { clearQueryCache, invalidate } from './query';
@@ -92,6 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyMe = useCallback((payload: MePayload) => {
     setUser(payload.user);
     setSettings(payload.settings);
+    // Offline changes are queued per account, so a shared device can never
+    // replay one person's unsynced work under the next person's token.
+    setOfflineOwner(payload.user.id);
   }, []);
 
   const loadMe = useCallback(async () => {
@@ -113,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     realtime.disconnect();
     await tokenStore.clear();
     clearQueryCache();
+    setOfflineOwner(null);
     setUser(null);
     setSettings(null);
     setStatus('signedOut');

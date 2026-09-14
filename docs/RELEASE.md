@@ -126,6 +126,9 @@ Then reference it from `android/gradle.properties` (generated, gitignored) with
 
 ## 6. Publish the GitHub Release
 
+Download the APK first (from the EAS build URL, or from the `jarvis-preview-apk` workflow artifact if
+you used the manual GitHub Actions job), then attach it to a tagged release:
+
 ```bash
 gh release create v1.0.0 \
   --title "JARVIS 1.0.0 — Android" \
@@ -183,13 +186,18 @@ expo.dev → Account settings → Access tokens).
 
 ## 9. Release checklist
 
+The manual device pass is **[DEVICE-TESTS.md](DEVICE-TESTS.md)** — it is currently *not executed*, so
+treat it as a gate rather than a formality.
+
 - [ ] API deployed over HTTPS with a persistent volume; `curl https://api.example.com/health` is `ok`
 - [ ] `JARVIS_JWT_SECRET` is a fresh, strong secret; `JARVIS_ALLOWED_ORIGINS` lists your web origin
 - [ ] An email provider is configured and a password-reset email actually arrives
 - [ ] `npm run typecheck && npm test` pass on the release commit
 - [ ] `EXPO_PUBLIC_API_URL` is exported for the build
 - [ ] APK built with the `preview` profile (or local `assembleRelease`) and installed on a real phone
-- [ ] Sign-up, sign-in, task creation, focus session, gang session, notification and export all
-      exercised on that device against the production API
+- [ ] The sections of [DEVICE-TESTS.md](DEVICE-TESTS.md) that apply to your deployment are green on a
+      real device against the production API — at minimum auth (signup, login, session restoration,
+      password reset), task create/complete/restart, the Pomodoro background test, the two-device Gang
+      Timer matrix, offline create → reconnect, a local reminder, export and account deletion
 - [ ] APK attached to a tagged GitHub Release with a checksum
 - [ ] Keystore backed up outside the repository

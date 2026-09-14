@@ -12,6 +12,7 @@ import { AppState } from 'react-native';
 import { apiRequest, ApiError } from './api';
 import { deviceId, readJson, writeJson, storageKeys } from './storage';
 import { getCached, invalidate, setCached } from './query';
+import { belongsToUser, partitionByOwner } from './queue-scope';
 
 export type SyncEntity = 'task' | 'project' | 'note' | 'habit' | 'habit_completion' | 'focus_session' | 'daily_review' | 'settings';
 
@@ -31,6 +32,15 @@ export interface PendingOperation {
   label: string;
   createdAt: number;
   attempts: number;
+  /**
+   * The account that was signed in when this change was queued.
+   *
+   * A device can be shared or handed over: without this, a change queued by one
+   * person would be replayed under the next person's token and land in the wrong
+   * account. Entries from older builds have no owner and are treated as belonging
+   * to whoever is signed in.
+   */
+  owner?: string | null;
   sync?: SyncOperationPayload;
   rest?: { method: 'POST' | 'PATCH' | 'DELETE' | 'PUT'; path: string; body?: unknown };
   invalidate?: string[];
@@ -47,6 +57,7 @@ export interface OfflineSnapshot {
 }
 
 let queue: PendingOperation[] = [];
+let currentOwner: string | null = null;
 let online = true;
 let syncing = false;
 let lastSyncedAt: number | null = null;
@@ -59,13 +70,23 @@ function emit(): void {
   for (const listener of listeners) listener();
 }
 
+/** Called by the auth layer whenever the signed-in account changes. */
+export function setOfflineOwner(userId: string | null): void {
+  currentOwner = userId;
+  emit();
+}
+
+function mine(): PendingOperation[] {
+  return partitionByOwner(queue, currentOwner).mine;
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
 export function offlineSnapshot(): OfflineSnapshot {
-  return { online, pending: queue.length, syncing, lastSyncedAt, lastError, rejected };
+  return { online, pending: mine().length, syncing, lastSyncedAt, lastError, rejected };
 }
 
 export function useOfflineStatus(): OfflineSnapshot & { flush: () => Promise<void> } {
@@ -109,6 +130,7 @@ export async function enqueueOperation(
     label: operation.label,
     createdAt: Date.now(),
     attempts: 0,
+    owner: currentOwner,
     sync: operation.sync,
     rest: operation.rest,
     invalidate: operation.invalidate,
@@ -120,8 +142,11 @@ export async function enqueueOperation(
 }
 
 export function pendingOperationCount(): number {
-  return queue.length;
+  return mine().length;
 }
+
+/** Exposed for tests: the ownership rule lives in `queue-scope.ts`. */
+export { belongsToUser };
 
 /** True when a request failed because there was no usable connection. */
 export function isOfflineError(error: unknown): boolean {
@@ -165,6 +190,11 @@ export async function flushQueue(): Promise<void> {
     await checkConnection();
     return;
   }
+  // Never send another account's queued changes with this session's token.
+  if (!mine().length) {
+    await checkConnection();
+    return;
+  }
   if (!online) {
     await checkConnection();
     if (!online) return;
@@ -173,8 +203,9 @@ export async function flushQueue(): Promise<void> {
   syncing = true;
   emit();
   const device = await deviceId();
-  const batch = [...queue];
+  const batch = mine();
   const syncable = batch.filter((op) => op.sync);
+  const restBatch = new Set(batch.map((op) => op.id));
   let cursorUpdate = 0;
 
   try {
@@ -205,7 +236,7 @@ export async function flushQueue(): Promise<void> {
 
     // Operations without a sync mapping (subtasks, planner blocks, social) replay
     // over plain REST, in order.
-    const restOps = queue.filter((op) => op.rest);
+    const restOps = queue.filter((op) => op.rest && restBatch.has(op.id));
     for (const op of restOps) {
       try {
         await apiRequest(op.rest!.path, { method: op.rest!.method, body: op.rest!.body });
