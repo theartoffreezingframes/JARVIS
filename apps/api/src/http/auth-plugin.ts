@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../lib/errors.js';
 import { verifyAccessToken } from '../lib/tokens.js';
-import { findUserById, getSettingsRow } from '../repo/users.js';
+import { findUserById, getSettingsRow, sessionIsActive } from '../repo/users.js';
 import { parseSettings } from '../repo/mappers.js';
 import type { UserRow } from '../repo/rows.js';
 import type { UserSettings } from '@jarvis/shared';
@@ -39,6 +39,8 @@ export function authenticate(request: FastifyRequest): UserRow | null {
   if (!token) return null;
   const claims = verifyAccessToken(token);
   if (!claims) return null;
+  // A revoked session (sign-out, password change or reset) stops working at once.
+  if (!sessionIsActive(claims.sid)) return null;
   const user = findUserById(claims.sub);
   if (!user) return null;
   request.user = user;

@@ -2,7 +2,7 @@
   "name": "jarvis",
   "private": true,
   "version": "1.0.0",
-  "description": "JARVIS — a productivity operating system for mobile (tasks, prioritization, planning, focus, habits, analytics, social accountability).",
+  "description": "JARVIS \u2014 a productivity operating system for mobile (tasks, prioritization, planning, focus, habits, analytics, social accountability).",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -19,7 +19,7 @@
     "build:web": "npm run build:web -w @jarvis/mobile",
     "seed": "npm run seed -w @jarvis/api",
     "reset:db": "npm run reset:db -w @jarvis/api",
-    "test": "npm run test -w @jarvis/api",
+    "test": "npm run test -w @jarvis/api && npm run test -w @jarvis/mobile",
     "typecheck": "npm run typecheck -w @jarvis/shared && npm run typecheck -w @jarvis/api && npm run typecheck -w @jarvis/mobile",
     "preview": "npm run build:web && npm run start"
   },

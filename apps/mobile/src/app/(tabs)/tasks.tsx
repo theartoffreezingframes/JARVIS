@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { RefreshControl, View } from 'react-native';
-import type { Task } from '@jarvis/shared';
+import { quadrantOf, type Quadrant, type Task } from '@jarvis/shared';
 import { TaskRow, dueLabel, priorityColor } from '../../components/tasks';
 import {
   Badge,
@@ -44,6 +44,31 @@ const VIEWS: Array<{ value: TaskView; label: string }> = [
   { value: 'archived', label: 'Archive' },
 ];
 
+const PRIORITY_ORDER = ['urgent', 'high', 'medium', 'low'];
+const QUADRANT_LABEL: Record<Quadrant, string> = {
+  do_now: 'Do Now',
+  schedule: 'Schedule',
+  delegate: 'Delegate',
+  eliminate: 'Eliminate',
+};
+
+/** Ordering follows Settings → Customize → Tasks. */
+function sortTasks(tasks: Task[], sort: string): Task[] {
+  const copy = [...tasks];
+  switch (sort) {
+    case 'due':
+      return copy.sort((a, b) => (a.dueDate ?? '9999') < (b.dueDate ?? '9999') ? -1 : (a.dueDate ?? '9999') > (b.dueDate ?? '9999') ? 1 : a.planOrder - b.planOrder);
+    case 'priority':
+      return copy.sort((a, b) => PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority));
+    case 'created':
+      return copy.sort((a, b) => b.createdAt - a.createdAt);
+    case 'title':
+      return copy.sort((a, b) => a.title.localeCompare(b.title));
+    default:
+      return copy.sort((a, b) => a.planOrder - b.planOrder || b.createdAt - a.createdAt);
+  }
+}
+
 const PRIORITIES = [
   { value: '', label: 'Any priority' },
   { value: 'urgent', label: 'Urgent' },
@@ -55,7 +80,17 @@ const PRIORITIES = [
 export default function TasksScreen() {
   const palette = usePalette();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, settings } = useAuth();
+  const display = useMemo(
+    () =>
+      settings?.taskDisplay ?? {
+        style: 'comfortable' as const,
+        sort: 'manual' as const,
+        grouping: 'day' as const,
+        fields: { due: true, priority: true, project: true, estimate: true, tags: true, subtasks: true, description: false },
+      },
+    [settings?.taskDisplay],
+  );
   const [view, setView] = useState<TaskView>('today');
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState('');
@@ -79,6 +114,7 @@ export default function TasksScreen() {
   const { tasks, counts, today, isLoading, isFetching, error, refetch } = useTasks(filters);
   const { projects } = useProjects();
   const { tags } = useTags();
+  const matrixSettings = settings?.matrix;
   const mutations = useTaskMutations();
 
   const projectNames = useMemo(
@@ -86,17 +122,40 @@ export default function TasksScreen() {
     [projects],
   );
 
+  const sorted = useMemo(() => sortTasks(tasks, display.sort), [tasks, display.sort]);
+
+  /** Grouping follows Settings → Customize → Tasks. */
   const grouped = useMemo(() => {
-    if (view !== 'today' && view !== 'upcoming' && view !== 'overdue') return null;
+    if (display.grouping === 'none') return null;
     const groups = new Map<string, Task[]>();
-    for (const task of tasks) {
-      const key = task.dueDate ?? 'No date';
+    for (const task of sorted) {
+      const key =
+        display.grouping === 'day'
+          ? (task.dueDate ?? 'No date')
+          : display.grouping === 'project'
+            ? (task.projectId ?? 'No project')
+            : display.grouping === 'priority'
+              ? task.priority
+              : quadrantOf({ important: task.important, urgent: task.urgent });
       const bucket = groups.get(key) ?? [];
       bucket.push(task);
       groups.set(key, bucket);
     }
-    return [...groups.entries()].sort((a, b) => (a[0] === 'No date' ? 1 : b[0] === 'No date' ? -1 : a[0] < b[0] ? -1 : 1));
-  }, [tasks, view]);
+    const entries = [...groups.entries()];
+    if (display.grouping === 'day') {
+      entries.sort((a, b) => (a[0] === 'No date' ? 1 : b[0] === 'No date' ? -1 : a[0] < b[0] ? -1 : 1));
+    } else if (display.grouping === 'priority') {
+      entries.sort((a, b) => PRIORITY_ORDER.indexOf(a[0]) - PRIORITY_ORDER.indexOf(b[0]));
+    }
+    return entries;
+  }, [sorted, display.grouping, display.sort]);
+
+  const groupTitle = (key: string): string => {
+    if (display.grouping === 'day') return key === 'No date' ? 'No date' : dayLabelFor(key, today);
+    if (display.grouping === 'project') return key === 'No project' ? 'No project' : (projectNames.get(key) ?? 'Project');
+    if (display.grouping === 'priority') return `${key[0]!.toUpperCase()}${key.slice(1)} priority`;
+    return matrixSettings ? matrixSettings.quadrantNames[key as Quadrant] : QUADRANT_LABEL[key as Quadrant];
+  };
 
   const activeFilterCount = [priority, tag, projectId].filter(Boolean).length;
 
@@ -173,7 +232,7 @@ export default function TasksScreen() {
         ? grouped.map(([dayKey, group]) => (
             <Stack key={dayKey} gap={spacing.sm}>
               <SectionHeader
-                title={dayKey === 'No date' ? 'No date' : dayLabelFor(dayKey, today)}
+                title={groupTitle(dayKey)}
                 subtitle={`${group.length} task${group.length === 1 ? '' : 's'}`}
               />
               <Card style={{ paddingVertical: spacing.sm }}>
@@ -184,7 +243,9 @@ export default function TasksScreen() {
                       task={task}
                       today={today}
                       projectName={task.projectId ? projectNames.get(task.projectId) : null}
-                      showProject
+                      showProject={display.fields.project}
+                      dense={display.style === 'compact'}
+                      fields={display.fields}
                       onToggle={() => toggle(task)}
                       onPress={() => router.push(`/task/${task.id}`)}
                       onLongPress={() => setMenuTask(task)}
@@ -194,17 +255,19 @@ export default function TasksScreen() {
               </Card>
             </Stack>
           ))
-        : tasks.length > 0
+        : sorted.length > 0
           ? (
             <Card style={{ paddingVertical: spacing.sm }}>
-              {tasks.map((task, index) => (
+              {sorted.map((task, index) => (
                 <View key={task.id}>
                   {index > 0 ? <View style={{ height: 1, backgroundColor: palette.border, marginLeft: 40 }} /> : null}
                   <TaskRow
                     task={task}
                     today={today}
                     projectName={task.projectId ? projectNames.get(task.projectId) : null}
-                    showProject
+                    showProject={display.fields.project}
+                    dense={display.style === 'compact'}
+                    fields={display.fields}
                     onToggle={() => toggle(task)}
                     onPress={() => router.push(`/task/${task.id}`)}
                     onLongPress={() => setMenuTask(task)}

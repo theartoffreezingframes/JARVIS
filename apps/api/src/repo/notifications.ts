@@ -5,6 +5,7 @@ import { newId } from '../lib/crypto.js';
 import { mapNotification } from './mappers.js';
 import type { NotificationRow } from './rows.js';
 import { nextSeq } from './users.js';
+import { queueNotificationPush } from '../services/push/queue.js';
 
 export interface NotificationInput {
   kind: NotificationKind;
@@ -30,7 +31,20 @@ export function insertNotification(userId: string, input: NotificationInput, db:
     ],
     db,
   );
-  return one<NotificationRow>('SELECT * FROM notifications WHERE id = ?', [id], db)!;
+  const row = one<NotificationRow>('SELECT * FROM notifications WHERE id = ?', [id], db)!;
+  // Remote push for notifications that are relevant *now*. Scheduled reminders
+  // (a future `scheduledFor`) are delivered by the device's local scheduler, so
+  // pushing them immediately would notify twice.
+  if (input.scheduledFor <= now + 60_000) {
+    queueNotificationPush(userId, {
+      kind: input.kind,
+      title: input.title,
+      body: input.body ?? '',
+      sessionId: input.sessionId ?? null,
+      groupId: input.groupId ?? null,
+    });
+  }
+  return row;
 }
 
 /** Replaces any pending notification of the same kind for the same entity. */

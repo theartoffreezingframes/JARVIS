@@ -132,6 +132,27 @@ export function TaskCheck({
   );
 }
 
+/** Which of the optional row fields are visible (Settings → Customize → Tasks). */
+export interface TaskRowFields {
+  due: boolean;
+  priority: boolean;
+  project: boolean;
+  estimate: boolean;
+  tags: boolean;
+  subtasks: boolean;
+  description: boolean;
+}
+
+const ALL_FIELDS: TaskRowFields = {
+  due: true,
+  priority: true,
+  project: true,
+  estimate: true,
+  tags: true,
+  subtasks: true,
+  description: true,
+};
+
 export function TaskRow({
   task,
   today,
@@ -142,6 +163,7 @@ export function TaskRow({
   projectName,
   trailing,
   dense,
+  fields,
 }: {
   task: Task;
   today: string;
@@ -152,19 +174,21 @@ export function TaskRow({
   projectName?: string | null;
   trailing?: React.ReactNode;
   dense?: boolean;
+  fields?: Partial<TaskRowFields>;
 }) {
   const palette = usePalette();
   const { formatClock } = useDateLabel();
+  const visible = { ...ALL_FIELDS, ...fields };
   const done = task.status === 'done';
   const due = dueLabel(task, today);
   const subtasksDone = task.subtasks.filter((subtask) => subtask.status === 'done').length;
 
   const meta: string[] = [];
-  if (showProject && projectName) meta.push(projectName);
-  if (due) meta.push(`${due.text}${task.dueTime ? ` ${formatClock(task.dueTime)}` : ''}`);
-  if (task.estimatedMinutes) meta.push(formatMinutes(task.estimatedMinutes));
-  if (task.subtasks.length > 0) meta.push(`${subtasksDone}/${task.subtasks.length} steps`);
-  if (task.actualMinutes > 0) meta.push(`${formatMinutes(task.actualMinutes)} spent`);
+  if (visible.project && projectName && (showProject ?? true)) meta.push(projectName);
+  if (visible.due && due) meta.push(`${due.text}${task.dueTime ? ` ${formatClock(task.dueTime)}` : ''}`);
+  if (visible.estimate && task.estimatedMinutes) meta.push(formatMinutes(task.estimatedMinutes));
+  if (visible.subtasks && task.subtasks.length > 0) meta.push(`${subtasksDone}/${task.subtasks.length} steps`);
+  if (visible.tags && task.tags.length > 0) meta.push(task.tags.map((tag) => `#${tag}`).join(' '));
 
   return (
     <Row gap={spacing.sm} style={{ paddingVertical: dense ? 4 : 8 }}>
@@ -194,10 +218,15 @@ export function TaskRow({
           >
             {task.title}
           </Type>
+          {visible.description && task.description && !dense ? (
+            <Type variant="caption" color={palette.textFaint} numberOfLines={1}>
+              {task.description}
+            </Type>
+          ) : null}
           {meta.length > 0 || task.isMustDo ? (
             <Row gap={6} wrap>
               {task.isMustDo ? <Badge label="Must do" color={palette.primary} /> : null}
-              {task.priority !== 'medium' && task.priority !== 'low' ? (
+              {visible.priority && task.priority !== 'medium' && task.priority !== 'low' ? (
                 <Badge label={task.priority} color={priorityColor(task.priority, palette)} icon="flag" />
               ) : null}
               <Type variant="caption" color={due?.overdue ? palette.danger : palette.textMuted} numberOfLines={1}>

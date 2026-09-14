@@ -12,6 +12,7 @@ import { Platform } from 'react-native';
 import { Badge, Button, Card, Chip, Row, Screen, SectionHeader, Stack, SwitchRow, Type } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { api } from '../../lib/api';
+import { pushSupported, registerForPush, sendTestPush } from '../../lib/push';
 import { spacing, usePalette } from '../../lib/theme';
 
 const CATEGORIES: Array<{ key: string; label: string; description: string }> = [
@@ -32,6 +33,9 @@ export default function NotificationSettingsScreen() {
   const { settings, updateSettings } = useAuth();
   const [permission, setPermission] = useState<string>('unknown');
   const [counts, setCounts] = useState<{ notifications: number; scheduled: number } | null>(null);
+  const [remote, setRemote] = useState<{ enabled: boolean; devices: number } | null>(null);
+  const [remoteNote, setRemoteNote] = useState<string | null>(null);
+  const [remoteBusy, setRemoteBusy] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -58,6 +62,42 @@ export default function NotificationSettingsScreen() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void (async () => {
+      try {
+        const data = await api.get<{ enabled: boolean; tokens: Array<{ id: string }> }>('/api/push/tokens');
+        setRemote({ enabled: data.enabled, devices: data.tokens.length });
+      } catch {
+        setRemote(null);
+      }
+    })();
+  }, []);
+
+  const registerDevice = async () => {
+    setRemoteBusy(true);
+    setRemoteNote(null);
+    const result = await registerForPush();
+    setRemoteNote(result.detail ?? null);
+    if (result.status === 'registered') {
+      try {
+        const data = await api.get<{ enabled: boolean; tokens: Array<{ id: string }> }>('/api/push/tokens');
+        setRemote({ enabled: data.enabled, devices: data.tokens.length });
+        setRemoteNote('This device is registered for remote notifications.');
+      } catch {
+        /* the registration itself succeeded */
+      }
+    }
+    setRemoteBusy(false);
+  };
+
+  const testRemote = async () => {
+    setRemoteBusy(true);
+    const result = await sendTestPush();
+    setRemoteNote(result.message);
+    setRemoteBusy(false);
+  };
 
   if (!settings) {
     return (
@@ -132,6 +172,44 @@ export default function NotificationSettingsScreen() {
           ) : null}
         </Stack>
       </Card>
+
+      {pushSupported() ? (
+        <Stack gap={spacing.sm}>
+          <SectionHeader
+            title="Remote notifications"
+            subtitle="So invites and session starts reach you with the app closed"
+          />
+          <Card>
+            <Stack gap={spacing.sm}>
+              <Row justify="space-between" align="center">
+                <Type variant="bodyStrong">Server push</Type>
+                <Badge
+                  label={remote === null ? 'Unknown' : remote.enabled ? 'Enabled' : 'Disabled'}
+                  color={remote?.enabled ? palette.success : palette.warning}
+                />
+              </Row>
+              <Type variant="caption" color={palette.textMuted}>
+                {remote === null
+                  ? 'Could not reach the server to check push status.'
+                  : remote.devices > 0
+                    ? `${remote.devices} device(s) registered on this account.`
+                    : 'No device registered yet on this account.'}
+                {' '}
+                Local reminders keep working regardless.
+              </Type>
+              <Row gap={spacing.sm} wrap>
+                <Button label="Register this device" size="sm" variant="secondary" loading={remoteBusy} onPress={() => void registerDevice()} />
+                <Button label="Send a test notification" size="sm" variant="secondary" disabled={!remote?.devices} onPress={() => void testRemote()} />
+              </Row>
+              {remoteNote ? (
+                <Type variant="caption" color={palette.textMuted}>
+                  {remoteNote}
+                </Type>
+              ) : null}
+            </Stack>
+          </Card>
+        </Stack>
+      ) : null}
 
       <Stack gap={spacing.sm}>
         <SectionHeader title="Categories" />

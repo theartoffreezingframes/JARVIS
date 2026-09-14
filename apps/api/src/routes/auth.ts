@@ -8,10 +8,12 @@ import {
   signUpSchema,
 } from '@jarvis/shared';
 import { config } from '../env.js';
-import { authenticate, requireUser } from '../http/auth-plugin.js';
+import { authenticate, bearerToken, requireUser } from '../http/auth-plugin.js';
 import { enforceRateLimit } from '../http/rate-limit.js';
 import { parseOrThrow } from '../lib/errors.js';
-import { revokeAllRefreshTokens, audit, getSettingsRow } from '../repo/users.js';
+import { findRefreshToken, revokeAllRefreshTokens, revokeRefreshToken, audit, getSettingsRow } from '../repo/users.js';
+import { hashToken } from '../lib/crypto.js';
+import { verifyAccessToken } from '../lib/tokens.js';
 import { mapUser, parseSettings } from '../repo/mappers.js';
 import {
   authenticateWithPassword,
@@ -68,14 +70,27 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ user: mapUser(user), settings: parseSettings(user, getSettingsRow(user.id)), ...tokens });
   });
 
+  /**
+   * Signs out **this** device.
+   *
+   * Only the presented refresh token is revoked, so signing out on a phone keeps
+   * a tablet signed in — genuine multi-device behaviour. Called without a refresh
+   * token (a lost device, an admin action) it falls back to revoking every
+   * session for the authenticated account.
+   */
   app.post('/auth/logout', async (request, reply) => {
     const input = parseOrThrow(refreshSchema.partial(), request.body ?? {});
     const user = authenticate(request);
-    if (user) {
-      revokeAllRefreshTokens(user.id);
-      audit('auth.logout', { userId: user.id, ip: request.ip });
+    if (input.refreshToken) {
+      const row = findRefreshToken(hashToken(input.refreshToken));
+      if (row) {
+        revokeRefreshToken(row.id, 'logout');
+        audit('auth.logout', { userId: row.user_id, ip: request.ip });
+      }
+    } else if (user) {
+      revokeAllRefreshTokens(user.id, 'logout');
+      audit('auth.logout_all', { userId: user.id, ip: request.ip });
     }
-    void input;
     reply.clearCookie?.('jarvis_at', { path: '/' });
     return reply.send({ ok: true });
   });
@@ -83,13 +98,16 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/forgot-password', async (request, reply) => {
     enforceRateLimit(request, reply, 'forgot', 6, 30 * 60_000);
     const input = parseOrThrow(forgotPasswordSchema, request.body);
-    const result = requestPasswordReset(input.email);
+    const result = await requestPasswordReset(input.email);
     audit('auth.forgot_password', { ip: request.ip });
-    // The response is identical whether or not the address exists.
+    // Identical response whether or not the address exists, and whether or not
+    // the mail provider accepted the message.
     return reply.send({
       ok: true,
-      message: 'If that email is registered, a reset link is on its way.',
-      ...(config.exposeDevSecrets && result.devToken ? { devToken: result.devToken } : {}),
+      message: 'If that email is registered, a reset link is on its way. The link expires in 30 minutes.',
+      // Development convenience only: never populated when NODE_ENV=production.
+      ...(config.exposeDevSecrets && result.token ? { devToken: result.token } : {}),
+      ...(config.exposeDevSecrets ? { devDelivered: Boolean(result.delivered) } : {}),
     });
   });
 
@@ -115,7 +133,10 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/change-password', async (request, reply) => {
     const user = requireUser(request);
     const input = parseOrThrow(changePasswordSchema, request.body);
-    await changePassword(user, input.currentPassword, input.newPassword);
+    // Identify this device's session so it survives the change while every other
+    // device is signed out.
+    const claims = verifyAccessToken(bearerToken(request) ?? '');
+    await changePassword(user, input.currentPassword, input.newPassword, claims?.sid ?? null);
     audit('auth.change_password', { userId: user.id, ip: request.ip });
     return reply.send({ ok: true, message: 'Password updated. Other devices have been signed out.' });
   });

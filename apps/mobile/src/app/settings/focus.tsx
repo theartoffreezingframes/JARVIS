@@ -1,8 +1,8 @@
 /**
  * Settings → Customize → Focus & pomodoro.
  *
- * Durations, rounds, auto-start behaviour, sound and haptics, countdown style and
- * the daily focus target used by the dashboard ring.
+ * Durations, rounds, auto-start behaviour, sound and haptics, countdown style,
+ * keep-screen-awake and the daily focus target used by the dashboard ring.
  */
 import { useRouter } from 'expo-router';
 import { Badge, Button, Card, Chip, Field, Input, Row, Screen, SectionHeader, Segmented, Stack, SwitchRow, Type } from '../../components/ui';
@@ -142,6 +142,12 @@ export default function FocusSettingsScreen() {
               description="A short buzz on start, pause and completion."
               value={settings.focus.haptics}
               onValueChange={(value) => void updateSettings({ focus: { haptics: value } })}
+            />
+            <SwitchRow
+              label="Keep the screen awake"
+              description="Stops the phone sleeping while a focus block is running."
+              value={settings.focus.keepScreenAwake}
+              onValueChange={(value) => void updateSettings({ focus: { keepScreenAwake: value } })}
             />
           </Stack>
         </Card>

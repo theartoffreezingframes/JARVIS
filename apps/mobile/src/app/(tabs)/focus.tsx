@@ -6,6 +6,7 @@
  * back when a block ends — including when it ended while the app was closed.
  */
 import { Ionicons } from '@expo/vector-icons';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -20,6 +21,7 @@ import {
   EmptyState,
   Field,
   Input,
+  ProgressBar,
   Row,
   Screen,
   SectionHeader,
@@ -45,6 +47,15 @@ import {
   useFocusTimerState,
 } from '../../lib/timer';
 import { radius, spacing, usePalette } from '../../lib/theme';
+
+/**
+ * Keeps the screen awake while a session is running, but only when the account
+ * asked for it (Settings → Focus → Keep screen awake).
+ */
+function KeepAwakeWhileRunning() {
+  useKeepAwake();
+  return null;
+}
 
 export default function FocusScreen() {
   const palette = usePalette();
@@ -92,6 +103,15 @@ export default function FocusScreen() {
   const plannedMs = timer.phasePlannedSeconds * 1000;
   const progress = plannedMs > 0 ? 1 - remaining / plannedMs : 0;
   const phaseLabel = timer.phase === 'focus' ? (timer.mode === 'deep_work' ? 'Deep work' : 'Focus') : timer.phase === 'long_break' ? 'Long break' : 'Short break';
+  // Countdown presentation from Settings → Focus (ring, bar or plain digits).
+  const countdownStyle = settings?.focus.countdownStyle ?? 'ring';
+  const keepAwake = (settings?.focus.keepScreenAwake ?? false) && isRunning;
+  const countdownColor = timer.phase === 'focus' ? palette.primary : palette.success;
+  const statusCaption = isIdle
+    ? `${customMinutes} minute session ready`
+    : isPaused
+      ? 'Paused — resume when you are ready'
+      : `${Math.round(progress * 100)}% of this block`;
 
   const begin = async (minutes: number, mode: 'pomodoro' | 'custom' | 'deep_work') => {
     await startFocus({
@@ -138,41 +158,67 @@ export default function FocusScreen() {
           {isPaused ? <Badge label="Paused" color={palette.warning} icon="pause" /> : null}
         </Row>
 
-        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-          <Svg width={size} height={size} style={{ position: 'absolute' }}>
-            <Circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radiusValue}
-              stroke={palette.surfaceMuted}
-              strokeWidth={stroke}
-              fill="none"
-            />
-            <Circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radiusValue}
-              stroke={timer.phase === 'focus' ? palette.primary : palette.success}
-              strokeWidth={stroke}
-              strokeLinecap="round"
-              fill="none"
-              strokeDasharray={`${circumference} ${circumference}`}
-              strokeDashoffset={circumference * (1 - Math.max(0, Math.min(1, progress)))}
-              transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            />
-          </Svg>
-          <Stack gap={2} style={{ alignItems: 'center' }}>
-            <Type variant="display" style={{ fontSize: 56, lineHeight: 62 }} accessibilityRole="header">
-              {formatDuration(remaining)}
-            </Type>
-            <Type variant="caption" color={palette.textMuted}>
-              {isIdle
-                ? `${customMinutes} minute session ready`
-                : isPaused
-                  ? 'Paused — resume when you are ready'
-                  : `${Math.round(progress * 100)}% of this block`}
-            </Type>
-          </Stack>
+        {keepAwake ? <KeepAwakeWhileRunning /> : null}
+
+        <View
+          style={{
+            width: countdownStyle === 'ring' ? size : '100%',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {countdownStyle === 'ring' ? (
+            <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+              <Svg width={size} height={size} style={{ position: 'absolute' }}>
+                <Circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radiusValue}
+                  stroke={palette.surfaceMuted}
+                  strokeWidth={stroke}
+                  fill="none"
+                />
+                <Circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radiusValue}
+                  stroke={countdownColor}
+                  strokeWidth={stroke}
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeDasharray={`${circumference} ${circumference}`}
+                  strokeDashoffset={circumference * (1 - Math.max(0, Math.min(1, progress)))}
+                  transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                />
+              </Svg>
+              <Stack gap={2} style={{ alignItems: 'center' }}>
+                <Type variant="display" style={{ fontSize: 56, lineHeight: 62 }} accessibilityRole="header">
+                  {formatDuration(remaining)}
+                </Type>
+                <Type variant="caption" color={palette.textMuted}>
+                  {statusCaption}
+                </Type>
+              </Stack>
+            </View>
+          ) : (
+            <Stack gap={spacing.sm} style={{ width: '100%', alignItems: 'center' }}>
+              <Type
+                variant="display"
+                accessibilityRole="header"
+                style={{ fontSize: countdownStyle === 'digits' ? 72 : 48, lineHeight: countdownStyle === 'digits' ? 78 : 54 }}
+              >
+                {formatDuration(remaining)}
+              </Type>
+              <Type variant="caption" color={palette.textMuted}>
+                {statusCaption}
+              </Type>
+              {countdownStyle === 'bar' ? (
+                <View style={{ width: '100%', maxWidth: 320, marginTop: spacing.xs }}>
+                  <ProgressBar value={Math.max(0, Math.min(1, progress))} color={countdownColor} height={10} />
+                </View>
+              ) : null}
+            </Stack>
+          )}
         </View>
 
         <Row gap={spacing.sm} justify="center" wrap>

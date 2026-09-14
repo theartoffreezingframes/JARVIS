@@ -2,8 +2,9 @@
  * Settings → Data & privacy.
  *
  * Export everything, remove the sample workspace, read what is stored and why,
- * and delete the account. Deletion is real: credentials are cleared, sessions
- * revoked and the account is excluded from every query.
+ * and delete the account. Deletion is real: the account and every record in it
+ * are removed from the database (a shared group you own is handed to another
+ * member first).
  */
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -208,9 +209,10 @@ export default function DataSettingsScreen() {
         <Card style={{ borderColor: `${palette.danger}66` }}>
           <Stack gap={spacing.sm}>
             <Type variant="caption" color={palette.textMuted}>
-              Deleting clears your credentials, revokes every session on every device, and removes your tasks,
-              projects, habits, notes and focus history from every query. Rows are anonymised rather than kept linked to
-              you.
+              Deleting revokes every session on every device and permanently removes your account and all of its data:
+              tasks, projects, habits, notes, focus history, settings and notification devices. A group you own is
+              handed to its longest-standing other member so nobody else loses it. This cannot be undone — export
+              first if you want a copy.
             </Type>
             <Field label="Confirm with your password">
               <Input

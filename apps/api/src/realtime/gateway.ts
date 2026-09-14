@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { participantStateSchema, reactionSchema, type RealtimeEvent } from '@jarvis/shared';
 import { config } from '../env.js';
 import { verifyAccessToken } from '../lib/tokens.js';
-import { findUserById } from '../repo/users.js';
+import { findUserById, sessionIsActive } from '../repo/users.js';
 import type { UserRow } from '../repo/rows.js';
 import { getSessionRow, participantRows, upsertParticipant } from '../repo/gang.js';
 import { userGroupIds } from '../repo/gang.js';
@@ -335,6 +335,7 @@ export function authenticateSocket(request: FastifyRequest): UserRow | null {
   if (!token) return null;
   const claims = verifyAccessToken(token);
   if (!claims) return null;
+  if (!sessionIsActive(claims.sid)) return null;
   return findUserById(claims.sub) ?? null;
 }
 

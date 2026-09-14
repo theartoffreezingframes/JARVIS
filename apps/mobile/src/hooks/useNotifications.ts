@@ -6,11 +6,12 @@
  * connection, and re-syncs whenever it comes back to the foreground.
  */
 import * as Notifications from 'expo-notifications';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { api } from '../lib/api';
 import { invalidate, useQuery } from '../lib/query';
 import { useAuth } from '../lib/auth';
+import { pushSupported, registerForPush, type PushRegistrationResult } from '../lib/push';
 import type { NotificationsResponse } from '../lib/types';
 
 try {
@@ -27,8 +28,33 @@ try {
 }
 
 export function useNotifications() {
-  const { status, settings } = useAuth();
+  const { status, settings, user } = useAuth();
   const scheduledRef = useRef<string[]>([]);
+  const [push, setPush] = useState<PushRegistrationResult | null>(null);
+  const registeredFor = useRef<string | null>(null);
+
+  /**
+   * Remote push registration: one attempt per signed-in account. The server
+   * re-points a device token when a different account signs in on the same
+   * install, so registration is idempotent and safe to repeat.
+   */
+  useEffect(() => {
+    if (status !== 'signedIn' || !user) {
+      registeredFor.current = null;
+      return;
+    }
+    if (registeredFor.current === user.id || !pushSupported()) return;
+    let cancelled = false;
+    void (async () => {
+      const result = await registerForPush();
+      if (cancelled) return;
+      registeredFor.current = user.id;
+      setPush(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, user?.id]);
 
   useEffect(() => {
     if (status !== 'signedIn' || Platform.OS === 'web') return;
@@ -69,8 +95,15 @@ export function useNotifications() {
           })
           .slice(0, 40);
 
-        // Replace the previous schedule so edits never double-notify.
-        await Notifications.cancelAllScheduledNotificationsAsync();
+        // Replace the previous reminder schedule so edits never double-notify —
+        // but never touch the focus timer's own notifications, which are the only
+        // way a backgrounded pomodoro can tell you it finished.
+        const existing = await Notifications.getAllScheduledNotificationsAsync();
+        await Promise.all(
+          existing
+            .filter((item) => (item.content?.data as { kind?: string } | undefined)?.kind !== 'focus')
+            .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier)),
+        );
         for (const item of wanted) {
           await Notifications.scheduleNotificationAsync({
             identifier: item.id,
@@ -93,7 +126,7 @@ export function useNotifications() {
     };
   }, [status, settings?.notifications]);
 
-  return { scheduledIds: scheduledRef.current };
+  return { scheduledIds: scheduledRef.current, push };
 }
 
 export function useNotificationFeed() {

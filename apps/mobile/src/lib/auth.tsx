@@ -9,6 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { UserSettings } from '@jarvis/shared';
 import { api, ApiError, setSessionExpiredHandler } from './api';
 import { clearLocalData, readJson, tokenStore, writeJson, storageKeys } from './storage';
+import { unregisterFromPush } from './push';
 import type { DeepPartial } from './types';
 import { clearQueryCache, invalidate } from './query';
 import { realtime } from './realtime';
@@ -58,7 +59,7 @@ interface AuthContextValue {
     timezoneOffsetMinutes: number;
   }) => Promise<void>;
   signOut: () => Promise<void>;
-  forgotPassword: (email: string) => Promise<string | null>;
+  forgotPassword: (email: string) => Promise<{ token: string | null; delivered: boolean | null }>;
   resetPassword: (token: string, password: string) => Promise<void>;
   updateProfile: (patch: Partial<SessionUser> & { avatarUrl?: string | null }) => Promise<void>;
   updateSettings: (patch: DeepPartial<UserSettings>) => Promise<void>;
@@ -101,6 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const refreshToken = await tokenStore.getRefresh();
+    // Stop remote push for this device before the session goes away, so a
+    // signed-out phone never receives another notification for this account.
+    if (refreshToken) await unregisterFromPush();
     try {
       if (refreshToken) await api.post('/api/auth/logout', { refreshToken }, { skipAuth: true });
     } catch {
@@ -222,14 +226,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const forgotPassword = useCallback(async (email: string) => {
-    const result = await api.post<{ ok: boolean; devToken?: string | null }>(
+    const result = await api.post<{ ok: boolean; devToken?: string | null; devDelivered?: boolean }>(
       '/api/auth/forgot-password',
       { email: email.trim().toLowerCase() },
       { skipAuth: true },
     );
-    // When the deployment has no mail provider configured the API returns the
-    // token directly so the reset flow is still usable — the UI says so.
-    return result.devToken ?? null;
+    // Outside production the API also reports what happened, so the screen can be
+    // honest about delivery instead of claiming an email was sent.
+    return { token: result.devToken ?? null, delivered: result.devDelivered ?? null };
   }, []);
 
   const resetPassword = useCallback(

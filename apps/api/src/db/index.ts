@@ -28,9 +28,26 @@ export function getDb(): Db {
   return db;
 }
 
-/** Idempotent schema application — safe to run at every boot. */
+/**
+ * Idempotent schema application — safe to run at every boot.
+ *
+ * `SCHEMA_SQL` only ever uses `CREATE … IF NOT EXISTS`, so it can add tables and
+ * indexes to an existing database but cannot add a column to a table that already
+ * exists. Column additions therefore get an explicit, guarded `ALTER TABLE` here.
+ * Nothing in a migration deletes or rewrites user data.
+ */
 export function migrate(db: Db = getDb()): void {
   db.exec(SCHEMA_SQL);
+  addColumnIfMissing(db, 'refresh_tokens', 'sid', 'TEXT');
+  addColumnIfMissing(db, 'refresh_tokens', 'revoked_reason', 'TEXT');
+  // Indexes over columns added above are created only once those columns exist.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_refresh_sid ON refresh_tokens(sid)');
+}
+
+function addColumnIfMissing(db: Db, table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (columns.some((entry) => entry.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
 export function closeDb(): void {

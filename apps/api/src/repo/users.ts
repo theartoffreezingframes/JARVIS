@@ -105,30 +105,74 @@ export interface RefreshTokenRow {
   last_used_at: number | null;
   expires_at: number;
   revoked_at: number | null;
+  revoked_reason: string | null;
 }
 
 export function insertRefreshToken(
-  input: { userId: string; tokenHash: string; deviceName: string | null; expiresAt: number },
+  input: { userId: string; tokenHash: string; deviceName: string | null; expiresAt: number; sid?: string },
   db: Db = getDb(),
 ): void {
   run(
-    `INSERT INTO refresh_tokens (id, user_id, token_hash, device_name, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [newId('rtk'), input.userId, input.tokenHash, input.deviceName, Date.now(), input.expiresAt],
+    `INSERT INTO refresh_tokens (id, user_id, sid, token_hash, device_name, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [newId('rtk'), input.userId, input.sid ?? null, input.tokenHash, input.deviceName, Date.now(), input.expiresAt],
     db,
   );
+}
+
+/**
+ * Is the session behind this access token still alive?
+ *
+ * Refresh-token rows are the record of a live session: while one exists for the
+ * token's `sid`, the access token is honoured; once it is revoked (sign-out,
+ * password change, password reset, account deletion) every access token minted
+ * for that session stops working immediately instead of lingering until expiry.
+ */
+export function sessionIsActive(sid: string, db: Db = getDb()): boolean {
+  const row = one<{ id: string }>(
+    'SELECT id FROM refresh_tokens WHERE sid = ? AND revoked_at IS NULL AND expires_at > ?',
+    [sid, Date.now()],
+    db,
+  );
+  return Boolean(row);
 }
 
 export function findRefreshToken(tokenHash: string, db: Db = getDb()): RefreshTokenRow | undefined {
   return one<RefreshTokenRow>('SELECT * FROM refresh_tokens WHERE token_hash = ?', [tokenHash], db);
 }
 
-export function revokeRefreshToken(id: string, db: Db = getDb()): void {
-  run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [Date.now(), id], db);
+export type RevokeReason = 'rotated' | 'logout' | 'password' | 'admin';
+
+export function revokeRefreshToken(id: string, reason: RevokeReason = 'logout', db: Db = getDb()): void {
+  run('UPDATE refresh_tokens SET revoked_at = ?, revoked_reason = ? WHERE id = ?', [Date.now(), reason, id], db);
 }
 
-export function revokeAllRefreshTokens(userId: string, db: Db = getDb()): void {
-  run('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [Date.now(), userId], db);
+export function revokeAllRefreshTokens(userId: string, reason: RevokeReason = 'admin', db: Db = getDb()): void {
+  run(
+    'UPDATE refresh_tokens SET revoked_at = ?, revoked_reason = ? WHERE user_id = ? AND revoked_at IS NULL',
+    [Date.now(), reason, userId],
+    db,
+  );
+}
+
+/**
+ * Revokes every session for a user except the one currently in use.
+ *
+ * Used by "change password": the device that performed the change stays signed
+ * in, every other device is signed out immediately (their access tokens stop
+ * working because their session rows are revoked).
+ */
+export function revokeOtherRefreshTokens(userId: string, keepSid: string | null, db: Db = getDb()): void {
+  if (!keepSid) {
+    revokeAllRefreshTokens(userId, 'password', db);
+    return;
+  }
+  run(
+    `UPDATE refresh_tokens SET revoked_at = ?, revoked_reason = 'password'
+      WHERE user_id = ? AND revoked_at IS NULL AND (sid IS NULL OR sid != ?)`,
+    [Date.now(), userId, keepSid],
+    db,
+  );
 }
 
 export function markRefreshTokenUsed(id: string, db: Db = getDb()): void {
@@ -144,6 +188,22 @@ export function insertPasswordReset(
     [newId('prt'), input.userId, input.tokenHash, Date.now(), input.expiresAt],
     db,
   );
+}
+
+/**
+ * Marks every outstanding reset link for a user as used.
+ *
+ * Called before issuing a new link, so at most one reset token is ever live per
+ * account: requesting a second link invalidates the first.
+ */
+export function invalidateOpenPasswordResets(userId: string, db: Db = getDb()): void {
+  run('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [Date.now(), userId], db);
+}
+
+/** Housekeeping: drops reset rows that are long expired or already consumed. */
+export function purgePasswordResets(olderThanMs: number, db: Db = getDb()): number {
+  const result = run('DELETE FROM password_resets WHERE expires_at < ? AND used_at IS NOT NULL', [olderThanMs], db);
+  return result.changes;
 }
 
 export function findPasswordReset(tokenHash: string, db: Db = getDb()): { id: string; user_id: string; expires_at: number; used_at: number | null } | undefined {

@@ -4,8 +4,9 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
-import { config } from './env.js';
+import { capabilityReport, config } from './env.js';
 import { migrate } from './db/index.js';
+import { consume, clientKey } from './http/rate-limit.js';
 import { sendError, serializeError } from './lib/errors.js';
 import { registerRealtime, type RealtimeBus } from './realtime/gateway.js';
 import { registerAnalyticsRoutes } from './routes/analytics.js';
@@ -22,6 +23,7 @@ import { registerAccountRoutes } from './routes/account.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
 import { registerSearchRoutes } from './routes/search.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerPushRoutes } from './routes/push.js';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -97,6 +99,21 @@ function hasPrettyPrinter(): boolean {
   }
 }
 
+/** Shared, leak-free health payload for `/health` and `/api/health`. */
+function healthPayload(realtime: RealtimeBus): Record<string, unknown> {
+  return {
+    ok: true,
+    status: 'healthy',
+    service: 'jarvis-api',
+    version: '1.0.0',
+    env: config.nodeEnv,
+    uptimeSeconds: Math.round(process.uptime()),
+    time: Date.now(),
+    realtimeClients: realtime.clientCount,
+    capabilities: capabilityReport(),
+  };
+}
+
 export interface BuildServerOptions {
   logger?: boolean;
   migrateDatabase?: boolean;
@@ -124,12 +141,18 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
 
   if (options.migrateDatabase !== false) migrate();
 
+  /**
+   * CORS policy.
+   *
+   *  - An explicit `JARVIS_ALLOWED_ORIGINS` list is always honoured.
+   *  - With no list, production allows **same-origin only** (no `Access-Control-
+   *    Allow-Origin` header is emitted, so browsers block cross-origin reads).
+   *    Native Android/iOS clients are unaffected: they do not enforce CORS.
+   *  - Development reflects any origin so Expo Go, the web dev server and
+   *    sandbox previews work without configuration.
+   */
   await app.register(cors, {
-    origin: config.allowedOrigins.length
-      ? config.allowedOrigins
-      : config.allowAnyOriginInDev
-        ? true
-        : true,
+    origin: config.allowedOrigins.length ? config.allowedOrigins : config.allowAnyOriginInDev,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['content-type', 'authorization', 'x-device-id'],
@@ -139,6 +162,31 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
   await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 
   /* ----------------------------- hardening ------------------------------ */
+
+  /**
+   * Broad per-IP ceiling on API traffic.
+   *
+   * Credential endpoints have their own tight limits (see `enforceRateLimit`);
+   * this is the safety net that keeps a single misbehaving client from saturating
+   * the process — including expensive read endpoints such as analytics. Limits
+   * are per IP and per minute, and `/health` is never limited so monitoring keeps
+   * working during an incident.
+   */
+  app.addHook('onRequest', async (request, reply) => {
+    const url = request.url.split('?')[0] ?? '';
+    if (!url.startsWith('/api') || url === '/api/health') return;
+    const ceiling = (config.isProduction ? 600 : 3_000) * config.rateLimitMultiplier;
+    const result = consume(clientKey(request, 'global-api'), ceiling, 60_000);
+    reply.header('x-ratelimit-remaining', String(result.remaining));
+    if (!result.allowed) {
+      const retryAfter = Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000));
+      reply.header('retry-after', String(retryAfter));
+      await reply.status(429).send({
+        error: 'rate_limited',
+        message: 'Too many requests. Please slow down and try again in a moment.',
+      });
+    }
+  });
 
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.header('x-content-type-options', 'nosniff');
@@ -155,7 +203,11 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
     const requestId = request.id;
     const { status, body } = serializeError(error);
     if (status >= 500) {
-      request.log.error({ err: error, requestId }, 'unhandled error');
+      // Full detail (including the stack) stays in the server log; the client
+      // receives only the generic message produced by serializeError.
+      request.log.error({ err: error, requestId, url: request.url }, 'unhandled error');
+    } else if (status === 429) {
+      request.log.warn({ requestId, url: request.url, ip: request.ip }, 'rate limited');
     }
     void reply.status(status).send({ ...body, requestId });
   });
@@ -173,13 +225,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
 
   await app.register(
     async (api) => {
-      api.get('/health', async () => ({
-        ok: true,
-        service: 'jarvis-api',
-        version: '1.0.0',
-        time: Date.now(),
-        realtimeClients: realtime.clientCount,
-      }));
+      api.get('/health', async () => healthPayload(realtime));
 
       await api.register(registerAuthRoutes);
       await api.register(registerAccountRoutes);
@@ -193,11 +239,19 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
       await api.register(registerReviewRoutes);
       await api.register(registerSocialRoutes);
       await api.register(registerNotificationRoutes);
+      await api.register(registerPushRoutes);
       await api.register(registerSearchRoutes);
       await api.register(registerSyncRoutes);
     },
     { prefix: '/api' },
   );
+
+  /**
+   * Plain `/health` for container probes and uptime monitors. Reports only
+   * liveness plus which optional capabilities are configured — never a secret,
+   * a database path, or an environment dump.
+   */
+  app.get('/health', async () => healthPayload(realtime));
 
   registerStatic(app);
 
@@ -218,6 +272,12 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<{
       'GET  /api/search', 'POST /api/sync/push', 'GET /api/sync/pull',
     ],
   }));
+
+  // Drain realtime sockets before the HTTP server finishes closing so clients
+  // reconnect cleanly instead of hanging on a half-closed socket.
+  app.addHook('onClose', async () => {
+    realtime.stop();
+  });
 
   return { app, realtime };
 }

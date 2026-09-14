@@ -8,31 +8,58 @@
  */
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import {
+  apiConfigurationMessage,
+  isPrivateAddress,
+  resolveApiBaseUrl,
+  type BaseUrlInputs,
+} from './api-url';
 import { tokenStore } from './storage';
 
-const DEFAULT_PORT = 4000;
+export { apiConfigurationMessage };
 
-function resolveBaseUrl(): string {
-  const explicit = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (explicit) return explicit.replace(/\/$/, '');
-
-  if (Platform.OS === 'web') {
-    // The web export is served by the API itself, so same-origin requests work.
-    if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-    return `http://localhost:${DEFAULT_PORT}`;
-  }
-
-  // In development, the Metro host is the machine running the API as well.
-  const hostUri =
-    Constants.expoConfig?.hostUri ??
-    (Constants.expoGoConfig as { debuggerHost?: string } | undefined)?.debuggerHost ??
-    '';
-  const host = hostUri.split(':')[0];
-  if (host) return `http://${host}:${DEFAULT_PORT}`;
-  return `http://localhost:${DEFAULT_PORT}`;
+/**
+ * True when this JS bundle is a release build (no dev server, no Metro).
+ *
+ * `__DEV__` is inlined by Metro: false in every release/TestFlight/APK build.
+ */
+function isReleaseBuild(): boolean {
+  if (Platform.OS === 'web') return false;
+  const dev = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
+  if (!dev) return true;
+  // Expo Go / a dev client always know their Metro host; a bundled release does not.
+  return !Constants.expoConfig?.hostUri;
 }
 
-export const API_BASE_URL = resolveBaseUrl();
+function metroHostUri(): string | null {
+  return (
+    Constants.expoConfig?.hostUri ??
+    (Constants.expoGoConfig as { debuggerHost?: string } | undefined)?.debuggerHost ??
+    null
+  );
+}
+
+export const API_BASE_URL = resolveApiBaseUrl({
+  explicit: process.env.EXPO_PUBLIC_API_URL,
+  platform: Platform.OS as BaseUrlInputs['platform'],
+  webOrigin: typeof window !== 'undefined' ? window.location?.origin : null,
+  hostUri: metroHostUri(),
+  isRelease: isReleaseBuild(),
+});
+
+if (__DEV__ && API_BASE_URL && isPrivateAddress(API_BASE_URL) && !isReleaseBuild()) {
+  // Helpful during development: a private address is expected locally and fatal
+  // in a release, so say which mode this is.
+  console.info(`[api] using development API origin ${API_BASE_URL}`);
+}
+if (__DEV__ && process.env.EXPO_PUBLIC_API_URL && /^http:\/\//.test(process.env.EXPO_PUBLIC_API_URL) && !isPrivateAddress(process.env.EXPO_PUBLIC_API_URL)) {
+  console.warn(
+    `[api] EXPO_PUBLIC_API_URL is plain HTTP (${process.env.EXPO_PUBLIC_API_URL}). Use https:// for anything a real user will reach.`,
+  );
+}
+
+/** Set when the build has no API origin configured. */
+export const API_BASE_URL_MISSING = API_BASE_URL === '';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -78,6 +105,7 @@ export function setSessionExpiredHandler(handler: (() => void) | null): void {
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
+  if (!API_BASE_URL) throw new ApiError(0, 'not_configured', apiConfigurationMessage());
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
   if (!query) return url;
   const params = new URLSearchParams();
@@ -203,6 +231,7 @@ export const api = {
 };
 
 export function realtimeUrl(token: string, sessionId?: string | null): string {
+  if (!API_BASE_URL) throw new ApiError(0, 'not_configured', apiConfigurationMessage());
   const base = API_BASE_URL.replace(/^http/, 'ws');
   const params = new URLSearchParams({ token });
   if (sessionId) params.set('sessionId', sessionId);

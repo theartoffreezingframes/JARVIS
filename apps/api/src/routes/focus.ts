@@ -112,8 +112,29 @@ export async function registerFocusRoutes(app: FastifyInstance): Promise<void> {
     return { stats, today: userToday(user) };
   });
 
-  /** Preset timer configurations derived from the user's settings. */
+  /**
+   * Timer presets.
+   *
+   * Built from the account's own Pomodoro settings first, then a few well-known
+   * shapes. Real data rather than a fixed list, so the "Session length" picker on
+   * the Focus screen always starts from what the account is configured to use.
+   */
   app.get('/focus/presets', async (request) => {
-    return { presets: [] };
+    const user = requireUser(request, true);
+    const settings = userSettings(request, user);
+    const presets = [
+      {
+        id: 'account',
+        label: 'Your settings',
+        mode: 'pomodoro',
+        focusMinutes: settings.pomodoroFocusMinutes,
+        breakMinutes: settings.pomodoroShortBreakMinutes,
+        rounds: settings.pomodoroSessionsBeforeLongBreak,
+      },
+      { id: 'classic', label: 'Classic 25 / 5', mode: 'pomodoro', focusMinutes: 25, breakMinutes: 5, rounds: 4 },
+      { id: 'deep', label: 'Deep 50 / 10', mode: 'pomodoro', focusMinutes: 50, breakMinutes: 10, rounds: 3 },
+      { id: 'sprint', label: 'Sprint 15 / 3', mode: 'pomodoro', focusMinutes: 15, breakMinutes: 3, rounds: 5 },
+    ];
+    return { presets };
   });
 }

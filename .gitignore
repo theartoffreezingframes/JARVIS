@@ -10,6 +10,10 @@ out/
 web-build/
 apps/api/public/
 *.tsbuildinfo
+*.apk
+*.aab
+*.ipa
+*.idsig
 
 # databases & local data
 data/
@@ -22,21 +26,35 @@ data/
 npm-debug.log*
 yarn-error.log*
 
-# env
+# env / secrets — never commit these
 .env
 .env.*
 !.env.example
+*.env
+secrets/
+*.secret
 
 # expo / native
 .expo/
 .expo-shared/
 apps/mobile/ios/
 apps/mobile/android/
+
+# signing material — release keystores, Play/App Store credentials
 *.jks
+*.keystore
+keystore.properties
 *.p8
 *.p12
+*.pem
 *.key
 *.mobileprovision
+*.provisionprofile
+credentials.json
+play-service-account*.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
 
 # os / editor
 .DS_Store

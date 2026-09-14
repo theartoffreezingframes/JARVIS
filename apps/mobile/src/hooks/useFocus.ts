@@ -31,11 +31,24 @@ export function useFocusSessions(params: { from?: string; to?: string; limit?: n
   return { sessions: query.data?.sessions ?? [], isLoading: query.isLoading, refetch: query.refetch };
 }
 
+/**
+ * Offline fallback presets.
+ *
+ * The API returns presets built from the account's own settings, but the timer
+ * must stay usable with no connection, so these well-known shapes are used until
+ * the request resolves (and if it never does).
+ */
+const OFFLINE_PRESETS: FocusPresetsResponse['presets'] = [
+  { id: 'classic', label: 'Classic 25 / 5', mode: 'pomodoro', focusMinutes: 25, breakMinutes: 5, rounds: 4 },
+  { id: 'deep', label: 'Deep 50 / 10', mode: 'pomodoro', focusMinutes: 50, breakMinutes: 10, rounds: 3 },
+  { id: 'sprint', label: 'Sprint 15 / 3', mode: 'pomodoro', focusMinutes: 15, breakMinutes: 3, rounds: 5 },
+];
+
 export function useFocusPresets() {
   const query = useQuery<FocusPresetsResponse>(queryKeys.focusPresets, () =>
     api.get<FocusPresetsResponse>('/api/focus/presets'),
   );
-  return { presets: query.data?.presets ?? [] };
+  return { presets: query.data?.presets?.length ? query.data.presets : OFFLINE_PRESETS };
 }
 
 export function useFocusMutations() {

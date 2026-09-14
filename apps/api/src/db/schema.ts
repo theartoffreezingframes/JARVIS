@@ -42,14 +42,24 @@ CREATE TABLE IF NOT EXISTS user_settings (
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id           TEXT PRIMARY KEY,
   user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- Session id embedded in the access token issued alongside this row. It makes
+  -- access tokens revocable: signing out, changing a password or resetting one
+  -- invalidates every access token minted for that session immediately.
+  sid          TEXT,
   token_hash   TEXT NOT NULL UNIQUE,
   device_name  TEXT,
   created_at   INTEGER NOT NULL,
   last_used_at INTEGER,
   expires_at   INTEGER NOT NULL,
-  revoked_at   INTEGER
+  revoked_at   INTEGER,
+  -- Why the session ended: 'rotated' (normal refresh), 'logout', 'password',
+  -- 'admin'. Only a replayed *rotated* token is treated as theft.
+  revoked_reason TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens(user_id);
+-- Note: the index on sid is created by migrate() after the column is guaranteed
+-- to exist. On an existing database the column is added by an ALTER TABLE, and an
+-- index over a not-yet-added column would fail the whole boot.
 
 CREATE TABLE IF NOT EXISTS password_resets (
   id         TEXT PRIMARY KEY,
@@ -400,6 +410,25 @@ CREATE TABLE IF NOT EXISTS sync_operations (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sync_ops_user ON sync_operations(user_id, created_at);
+
+-- Remote push registrations. One row per (device install, platform). A device
+-- token is unique across the table: when a different account signs in on the
+-- same install the row is re-pointed at the new user, so a stale owner can never
+-- receive another account's notifications.
+CREATE TABLE IF NOT EXISTS push_tokens (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token        TEXT NOT NULL,
+  platform     TEXT NOT NULL,
+  device_id    TEXT,
+  device_name  TEXT,
+  enabled      INTEGER NOT NULL DEFAULT 1,
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_tokens_token ON push_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id);
 
 CREATE TABLE IF NOT EXISTS audit_log (
   id         TEXT PRIMARY KEY,

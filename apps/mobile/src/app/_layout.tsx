@@ -10,10 +10,12 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { API_BASE_URL_MISSING, apiConfigurationMessage } from '../lib/api';
 import { hydrateOffline, useConnectivityWatch } from '../lib/offline';
 import { hydrateCache, useForegroundRefresh } from '../lib/query';
 import { hydrateFocusTimer } from '../lib/timer';
-import { usePalette } from '../lib/theme';
+import { spacing, usePalette } from '../lib/theme';
+import { Type } from '../components/ui';
 import { useNotifications } from '../hooks/useNotifications';
 import { LoadingBlock } from '../components/ui';
 
@@ -64,6 +66,27 @@ function AppShell() {
     );
   }
 
+  /**
+   * A build with no API address cannot do anything useful. Saying so plainly is
+   * better than a screen full of failed requests (and it can only happen when a
+   * release was built without EXPO_PUBLIC_API_URL).
+   */
+  if (API_BASE_URL_MISSING) {
+    return (
+      <View
+        style={{ flex: 1, backgroundColor: palette.background, justifyContent: 'center', padding: 24, gap: spacing.sm }}
+      >
+        <Ionicons name="cloud-offline-outline" size={36} color={palette.warning} />
+        <Type variant="title" accessibilityRole="header">
+          Server not configured
+        </Type>
+        <Type variant="body" color={palette.textMuted}>
+          {apiConfigurationMessage()}
+        </Type>
+      </View>
+    );
+  }
+
   return (
     <>
       <StatusBar style={palette.text === '#F7F8FA' ? 'light' : 'dark'} />
@@ -100,6 +123,7 @@ function AppShell() {
             <Stack.Screen name="sign-in" />
             <Stack.Screen name="sign-up" />
             <Stack.Screen name="forgot-password" />
+            <Stack.Screen name="reset-password" />
           </>
         )}
       </Stack>

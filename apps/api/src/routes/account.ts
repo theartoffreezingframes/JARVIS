@@ -12,7 +12,7 @@ import { requireUser, userSettings } from '../http/auth-plugin.js';
 import { loadDemoData, removeDemoData, readDemoState } from '../services/demo-data.js';
 import { getDb, one, run } from '../db/index.js';
 import { AppError, parseOrThrow } from '../lib/errors.js';
-import { hashPassword, verifyPassword } from '../lib/crypto.js';
+import { verifyPassword } from '../lib/crypto.js';
 import {
   mapDailyReview,
   mapHabitCompletion,
@@ -30,7 +30,6 @@ import {
   findUserByUsername,
   getSettingsRow,
   insertSettingsRow,
-  revokeAllRefreshTokens,
   updatePasswordHash,
 } from '../repo/users.js';
 import { hydrateTasks, listTags } from '../repo/tasks.js';
@@ -219,31 +218,55 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
    * credentials. Data is retained only as anonymised rows for referential
    * integrity, and is excluded from every query by `deleted_at IS NULL`.
    */
+  /**
+   * Deletes the account and everything in it.
+   *
+   * This is a real deletion, not a flag: every table that references a user
+   * declares `ON DELETE CASCADE`, so removing the `users` row removes that
+   * account's tasks, projects, notes, habits, focus history, settings, device
+   * tokens and memberships in one transaction. Nothing of the person's workspace
+   * stays behind for someone else to read.
+   *
+   * The two deliberate exceptions:
+   *  - **groups they own**: ownership is handed to the longest-standing other
+   *    member so a shared group is not destroyed for everyone; a group with no
+   *    other members is deleted with the account.
+   *  - **the audit trail**: `audit_log` keeps an anonymous user id with no
+   *    contact details, which is what makes abuse investigations possible.
+   */
   app.delete('/me', async (request, reply) => {
     const user = requireUser(request);
     const input = parseOrThrow(deleteAccountSchema, request.body);
     const ok = await verifyPassword(input.password, user.password_hash);
     if (!ok) throw AppError.badRequest('Your password is incorrect');
 
-    const now = Date.now();
     const db = getDb();
-    db.prepare('UPDATE users SET deleted_at = ?, email = ?, username = ?, name = ?, avatar_url = NULL, bio = NULL, password_hash = ?, updated_at = ? WHERE id = ?')
-      .run(
-        now,
-        `deleted+${user.id}@jarvis.invalid`,
-        `deleted_${user.id.slice(-10)}`,
-        'Deleted account',
-        await hashPassword(`deleted-${user.id}-${now}`),
-        now,
-        user.id,
-      );
-    revokeAllRefreshTokens(user.id);
-    db.prepare('DELETE FROM user_settings WHERE user_id = ?').run(user.id);
-    db.prepare('DELETE FROM refresh_tokens WHERE user_id = ?').run(user.id);
-    audit('account.delete', { userId: user.id, ip: request.ip });
+    const remove = db.transaction(() => {
+      const ownedGroups = db.prepare('SELECT id FROM groups WHERE owner_id = ?').all(user.id) as Array<{ id: string }>;
+      for (const group of ownedGroups) {
+        const successor = db
+          .prepare(
+            'SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ? ORDER BY joined_at ASC LIMIT 1',
+          )
+          .get(group.id, user.id) as { user_id: string } | undefined;
+        if (successor) {
+          db.prepare('UPDATE groups SET owner_id = ?, updated_at = ? WHERE id = ?').run(
+            successor.user_id,
+            Date.now(),
+            group.id,
+          );
+        }
+      }
+      audit('account.delete', { userId: user.id, ip: request.ip });
+      db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+    });
+    remove();
 
     reply.clearCookie('jarvis_at', { path: '/' });
-    return reply.send({ ok: true, message: 'Your account has been deleted.' });
+    return reply.send({
+      ok: true,
+      message: 'Your account and all of its data have been deleted from this server.',
+    });
   });
 
   /**

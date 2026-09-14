@@ -23,6 +23,7 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
   const [devToken, setDevToken] = useState<string | null>(null);
+  const [delivered, setDelivered] = useState<boolean | null>(null);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +33,9 @@ export default function ForgotPasswordScreen() {
     setBusy(true);
     setError(null);
     try {
-      const returned = await forgotPassword(email.trim().toLowerCase());
+      const { token: returned, delivered: sent } = await forgotPassword(email.trim().toLowerCase());
       setDevToken(returned);
+      setDelivered(sent);
       setStage('reset');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Could not start the reset');
@@ -80,8 +82,8 @@ export default function ForgotPasswordScreen() {
         </Type>
         <Type variant="body" color={palette.textMuted}>
           {stage === 'request'
-            ? 'We will email you a reset token if that address has an account.'
-            : 'Enter the token from the email together with a new password.'}
+            ? 'We email a single-use link that expires in 30 minutes if that address has an account.'
+            : 'Open the link in the email, or paste its token here together with a new password.'}
         </Type>
       </Stack>
 
@@ -89,6 +91,15 @@ export default function ForgotPasswordScreen() {
         <Stack gap={spacing.md}>
           {stage === 'request' ? (
             <>
+              {delivered === false && devToken === null ? (
+                <Row gap={6}>
+                  <Ionicons name="mail-outline" size={15} color={palette.warning} />
+                  <Type variant="caption" color={palette.textMuted} style={{ flex: 1 }}>
+                    If the address is registered, the reset email is on its way. Nothing arrived? Check spam, then ask
+                    your administrator whether the server has an email provider configured.
+                  </Type>
+                </Row>
+              ) : null}
               <Field label="Email">
                 <Input
                   value={email}
@@ -102,14 +113,22 @@ export default function ForgotPasswordScreen() {
             </>
           ) : (
             <>
+              {delivered ? (
+                <Row gap={6}>
+                  <Ionicons name="checkmark-circle" size={15} color={palette.success} />
+                  <Type variant="caption" color={palette.textMuted} style={{ flex: 1 }}>
+                    The reset email was handed to the mail server. Open the link on any device, or paste the token below.
+                  </Type>
+                </Row>
+              ) : null}
               {devToken ? (
                 <Card style={{ backgroundColor: palette.primaryMuted, borderColor: palette.primary }}>
                   <Stack gap={4}>
                     <Type variant="label" color={palette.primary}>
-                      EMAIL DELIVERY IS NOT CONFIGURED
+                      DEVELOPMENT ONLY — NOT SENT BY EMAIL
                     </Type>
                     <Type variant="caption" color={palette.textMuted}>
-                      This deployment has no mail provider, so the token is shown here once. In production it would be
+                      This server has no mail provider configured, so the token is shown here once. In production it is
                       emailed and never displayed.
                     </Type>
                     <Row gap={spacing.sm} style={{ marginTop: spacing.xs }}>
