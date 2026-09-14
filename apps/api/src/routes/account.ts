@@ -9,10 +9,20 @@ import {
   updateSettingsSchema,
 } from '@jarvis/shared';
 import { requireUser, userSettings } from '../http/auth-plugin.js';
+import { loadDemoData, removeDemoData, readDemoState } from '../services/demo-data.js';
 import { getDb, one, run } from '../db/index.js';
 import { AppError, parseOrThrow } from '../lib/errors.js';
 import { hashPassword, verifyPassword } from '../lib/crypto.js';
-import { mapUser, parseSettings, defaultSettings } from '../repo/mappers.js';
+import {
+  mapDailyReview,
+  mapHabitCompletion,
+  mapUser,
+  parseSettings,
+  defaultSettings,
+  mergeSettings,
+  layoutWidgets,
+} from '../repo/mappers.js';
+import type { DailyReviewRow, HabitCompletionRow } from '../repo/rows.js';
 import {
   audit,
   findUserByEmail,
@@ -35,6 +45,12 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
   app.get('/me', async (request) => {
     const user = requireUser(request, true);
     return { user: mapUser(user), settings: request.settings! };
+  });
+
+  /** Counts for the privacy screen, cheap enough to call on every visit. */
+  app.get('/me/demo-data', async (request) => {
+    const user = requireUser(request);
+    return { demoData: readDemoState(user) };
   });
 
   app.patch('/me', async (request) => {
@@ -73,12 +89,14 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     const input = parseOrThrow(updateSettingsSchema, request.body);
     const current = userSettings(request, user);
 
-    const merged = {
-      ...current,
-      ...input,
-      notifications: { ...current.notifications, ...(input.notifications ?? {}) },
-      dashboardWidgets: input.dashboardWidgets ?? current.dashboardWidgets,
-    };
+    // A patch may touch one nested section (e.g. only the pomodoro lengths) —
+    // deep merge so unrelated preferences are preserved.
+    const merged = mergeSettings(current, input);
+
+    // Choosing a dashboard layout replaces the widget list with that preset.
+    if (input.dashboardLayout && input.dashboardLayout !== current.dashboardLayout) {
+      merged.dashboardWidgets = layoutWidgets(input.dashboardLayout);
+    }
 
     insertSettingsRow(user.id, merged);
 
@@ -94,7 +112,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     }
 
     const refreshed = findUserById(user.id) ?? user;
-    return { settings: parseSettings(refreshed, getSettingsRow(refreshed.id)) };
+    return { settings: parseSettings(refreshed, getSettingsRow(refreshed.id)), user: mapUser(refreshed) };
   });
 
   app.post('/me/settings/reset', async (request) => {
@@ -141,10 +159,14 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
       db.prepare('SELECT * FROM focus_sessions WHERE user_id = ? AND deleted_at IS NULL ORDER BY started_at').all(user.id) as never,
     );
     const groups = listGroups(user.id, userToday(user));
-    const reviews = db.prepare('SELECT * FROM daily_reviews WHERE user_id = ? ORDER BY day_key').all(user.id) as never[];
-    const completions = db
-      .prepare('SELECT * FROM habit_completions WHERE user_id = ? AND deleted_at IS NULL ORDER BY day_key')
-      .all(user.id) as never[];
+    const reviews = (db.prepare('SELECT * FROM daily_reviews WHERE user_id = ? ORDER BY day_key').all(user.id) as DailyReviewRow[]).map(
+      mapDailyReview,
+    );
+    const completions = (
+      db
+        .prepare('SELECT * FROM habit_completions WHERE user_id = ? AND deleted_at IS NULL ORDER BY day_key')
+        .all(user.id) as HabitCompletionRow[]
+    ).map(mapHabitCompletion);
 
     const payload = {
       exportedAt: new Date().toISOString(),
@@ -222,6 +244,23 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
 
     reply.clearCookie('jarvis_at', { path: '/' });
     return reply.send({ ok: true, message: 'Your account has been deleted.' });
+  });
+
+  /**
+   * Optional sample workspace. A new account is completely empty; this lets
+   * someone evaluate the product with realistic data inside *their own* account
+   * and remove it again in one tap.
+   */
+  app.post('/me/demo-data', async (request) => {
+    const user = requireUser(request);
+    const state = loadDemoData(user);
+    return { demoData: state, message: 'Sample workspace created.' };
+  });
+
+  app.delete('/me/demo-data', async (request) => {
+    const user = requireUser(request);
+    const state = removeDemoData(user);
+    return { demoData: state, message: 'Sample workspace removed.' };
   });
 
   /** Privacy summary — what we store and why, surfaced in the app. */

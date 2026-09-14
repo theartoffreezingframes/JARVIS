@@ -17,6 +17,22 @@ import {
   tagNameSchema,
   timeOfDaySchema,
 } from './primitives';
+import {
+  ANIMATION_LEVELS,
+  CALENDAR_DISPLAYS,
+  DASHBOARD_LAYOUTS,
+  DASHBOARD_WIDGETS,
+  DEFAULT_CLASSIFICATIONS,
+  DENSITIES,
+  FOCUS_COUNTDOWN_STYLES,
+  HABIT_DISPLAY_STYLES,
+  MATRIX_DISPLAY_STYLES,
+  RADIUS_STYLES,
+  TASK_DISPLAY_STYLES,
+  TASK_GROUPINGS,
+  TASK_SORT_ORDERS,
+  THEME_PRESETS,
+} from './models';
 
 /* -------------------------------------------------------------------------- */
 /*  Reusable field schemas                                                    */
@@ -127,8 +143,94 @@ export const deleteAccountSchema = z.object({
 /* -------------------------------------------------------------------------- */
 
 export const dashboardWidgetSchema = z.object({
-  id: z.string().min(1).max(40),
+  id: z.enum(DASHBOARD_WIDGETS),
   visible: z.boolean(),
+});
+
+export const taskDefaultsSettingsSchema = z.object({
+  priority: z.enum(PRIORITIES),
+  estimateMinutes: z.number().int().min(5).max(600).nullable(),
+  reminderLeadMinutes: z.number().int().min(0).max(10_080).nullable(),
+  projectId: z.string().min(3).max(64).nullable(),
+  dueToday: z.boolean(),
+  classifyAtCreation: z.boolean(),
+});
+
+export const taskDisplaySettingsSchema = z.object({
+  style: z.enum(TASK_DISPLAY_STYLES),
+  sort: z.enum(TASK_SORT_ORDERS),
+  grouping: z.enum(TASK_GROUPINGS),
+  fields: z.object({
+    due: z.boolean(),
+    priority: z.boolean(),
+    project: z.boolean(),
+    estimate: z.boolean(),
+    tags: z.boolean(),
+    subtasks: z.boolean(),
+    description: z.boolean(),
+  }),
+});
+
+const quadrantTextRecord = z.object({
+  do_now: z.string().min(1).max(28),
+  schedule: z.string().min(1).max(28),
+  delegate: z.string().min(1).max(28),
+  eliminate: z.string().min(1).max(28),
+});
+
+const quadrantDescriptionRecord = z.object({
+  do_now: z.string().min(1).max(160),
+  schedule: z.string().min(1).max(160),
+  delegate: z.string().min(1).max(160),
+  eliminate: z.string().min(1).max(160),
+});
+
+export const matrixSettingsSchema = z.object({
+  quadrantNames: quadrantTextRecord,
+  quadrantDescriptions: quadrantDescriptionRecord,
+  defaultClassification: z.enum(DEFAULT_CLASSIFICATIONS),
+  displayStyle: z.enum(MATRIX_DISPLAY_STYLES),
+  showHints: z.boolean(),
+});
+
+export const focusSettingsSchema = z.object({
+  sound: z.boolean(),
+  haptics: z.boolean(),
+  countdownStyle: z.enum(FOCUS_COUNTDOWN_STYLES),
+  keepScreenAwake: z.boolean(),
+  dailyTargetMinutes: z.number().int().min(15).max(720),
+});
+
+export const calendarSettingsSchema = z.object({
+  defaultEventMinutes: z.number().int().min(5).max(600),
+  workingHoursStart: timeOfDaySchema,
+  workingHoursEnd: timeOfDaySchema,
+  display: z.enum(CALENDAR_DISPLAYS),
+  showCompleted: z.boolean(),
+  showHabits: z.boolean(),
+  showFocusSessions: z.boolean(),
+});
+
+export const habitSettingsSchema = z.object({
+  displayStyle: z.enum(HABIT_DISPLAY_STYLES),
+  showStreaks: z.boolean(),
+  showHeatmap: z.boolean(),
+});
+
+export const demoDataSettingsSchema = z.object({
+  enabled: z.boolean(),
+  loadedAt: z.number().int().nullable(),
+  projectIds: z.array(idSchema).max(50),
+  habitIds: z.array(idSchema).max(50),
+  noteIds: z.array(idSchema).max(100),
+});
+
+export const themeSettingsSchema = z.object({
+  preset: z.enum(THEME_PRESETS),
+  density: z.enum(DENSITIES),
+  radiusStyle: z.enum(RADIUS_STYLES),
+  animationLevel: z.enum(ANIMATION_LEVELS),
+  fontScale: z.number().min(0.85).max(1.3),
 });
 
 export const notificationPreferencesSchema = z.object({
@@ -162,8 +264,26 @@ export const updateSettingsSchema = z.object({
   dailyPlanningReminder: timeOfDaySchema.nullable().optional(),
   dailyReviewReminder: timeOfDaySchema.nullable().optional(),
   dashboardWidgets: z.array(dashboardWidgetSchema).max(24).optional(),
+  dashboardLayout: z.enum(DASHBOARD_LAYOUTS).optional(),
   leaderboardEnabled: z.boolean().optional(),
   notifications: notificationPreferencesSchema.partial().optional(),
+  appearance: themeSettingsSchema.partial().optional(),
+  taskDefaults: taskDefaultsSettingsSchema.partial().optional(),
+  taskDisplay: taskDisplaySettingsSchema
+    .extend({ fields: taskDisplaySettingsSchema.shape.fields.partial() })
+    .partial()
+    .optional(),
+  matrix: matrixSettingsSchema
+    .extend({
+      quadrantNames: quadrantTextRecord.partial(),
+      quadrantDescriptions: quadrantDescriptionRecord.partial(),
+    })
+    .partial()
+    .optional(),
+  focus: focusSettingsSchema.partial().optional(),
+  calendar: calendarSettingsSchema.partial().optional(),
+  habits: habitSettingsSchema.partial().optional(),
+  demoData: demoDataSettingsSchema.optional(),
 });
 
 /* -------------------------------------------------------------------------- */

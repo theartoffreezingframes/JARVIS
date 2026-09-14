@@ -384,13 +384,23 @@ export async function seed(): Promise<void> {
     }
 
     for (let i = 0; i < createdCount; i += 1) {
+      // Older captures are archived: the heat map keeps the creation history, but
+      // the demo account is not left with a hundred stale open items.
+      const stale = back > 14;
       const row = insertTask(demo.id, {
         projectId: i % 3 === 0 ? coding.id : null,
         title: `Captured idea ${back}-${i}`,
         dueDate: null,
         priority: 'low',
+        status: stale ? 'archived' : 'todo',
+        important: !stale && i % 3 === 0,
+        urgent: !stale && i % 4 === 0,
       });
-      db.prepare('UPDATE tasks SET created_at = ? WHERE id = ?').run(atIso(day, 11), row.id);
+      db.prepare('UPDATE tasks SET created_at = ?, archived_at = ? WHERE id = ?').run(
+        atIso(day, 11),
+        stale ? atIso(day, 12) : null,
+        row.id,
+      );
     }
   }
 

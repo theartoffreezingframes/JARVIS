@@ -88,6 +88,23 @@ function recordOperation(operation: SyncOperation, userId: string, result: unkno
   );
 }
 
+/**
+ * Looks a row up by the id the *client* generated for it.
+ *
+ * A device that replayed a create after losing its local id map must not be able
+ * to create a second copy, and must not fail either — the queued mutation simply
+ * lands on the row it originally created.
+ */
+function rowByClientId(entity: SyncEntity, clientId: string, userId: string, db: Db): Record<string, unknown> | undefined {
+  const table = ENTITY_TABLE[entity];
+  if (!table || entity === 'settings' || entity === 'subtask') return undefined;
+  return one<Record<string, unknown>>(
+    `SELECT * FROM ${table} WHERE user_id = ? AND client_id = ? AND deleted_at IS NULL`,
+    [userId, clientId],
+    db,
+  );
+}
+
 function serverRow(entity: SyncEntity, entityId: string, userId: string, db: Db): Record<string, unknown> | undefined {
   const table = ENTITY_TABLE[entity];
   if (!table) return undefined;
@@ -261,9 +278,15 @@ function applyCreateOrUpdate(
 ): SyncPushResult['applied'][number] {
   switch (operation.entity) {
     case 'task': {
-      if (current || (operation.op === 'update' && current)) {
-        setTaskFieldsForSync(user, operation.entityId, patch, db);
-        return { id: operation.id, entity: operation.entity, entityId: operation.entityId };
+      const existingTask = current ?? rowByClientId('task', operation.entityId, user.id, db);
+      if (existingTask) {
+        setTaskFieldsForSync(user, String(existingTask.id), patch, db);
+        return {
+          id: operation.id,
+          entity: operation.entity,
+          entityId: operation.entityId,
+          serverId: String(existingTask.id),
+        };
       }
       if (operation.op === 'toggle') {
         const completed = patch.completed === true;
@@ -280,6 +303,11 @@ function applyCreateOrUpdate(
       return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: created.id };
     }
     case 'project': {
+      const existingProject = rowByClientId('project', operation.entityId, user.id, db);
+      if (existingProject) {
+        patchProject(user.id, String(existingProject.id), patch as never, db);
+        return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: String(existingProject.id) };
+      }
       const created = insertProject(
         user.id,
         { ...(patch as unknown as Parameters<typeof insertProject>[1]), clientId: (patch.clientId as string) ?? operation.entityId },
@@ -288,9 +316,10 @@ function applyCreateOrUpdate(
       return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: created.id };
     }
     case 'habit': {
-      if (current) {
-        patchHabit(user.id, operation.entityId, patch as never, db);
-        return { id: operation.id, entity: operation.entity, entityId: operation.entityId };
+      const existingHabit = current ?? rowByClientId('habit', operation.entityId, user.id, db);
+      if (existingHabit) {
+        patchHabit(user.id, String(existingHabit.id), patch as never, db);
+        return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: String(existingHabit.id) };
       }
       const created = patchHabitRow(user, patch);
       return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: created };
@@ -304,9 +333,10 @@ function applyCreateOrUpdate(
       return { id: operation.id, entity: operation.entity, entityId: operation.entityId };
     }
     case 'focus_session': {
-      if (patch.actualSeconds !== undefined && current) {
-        patchFocusSession(user.id, operation.entityId, patch as never, db);
-        return { id: operation.id, entity: operation.entity, entityId: operation.entityId };
+      const existingSession = current ?? rowByClientId('focus_session', operation.entityId, user.id, db);
+      if (existingSession) {
+        patchFocusSession(user.id, String(existingSession.id), patch as never, db);
+        return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: String(existingSession.id) };
       }
       const created = insertFocusSession(
         user.id,
@@ -325,9 +355,10 @@ function applyCreateOrUpdate(
       return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: created.id };
     }
     case 'note': {
-      if (current) {
-        patchNote(user.id, operation.entityId, patch as never, db);
-        return { id: operation.id, entity: operation.entity, entityId: operation.entityId };
+      const existingNote = current ?? rowByClientId('note', operation.entityId, user.id, db);
+      if (existingNote) {
+        patchNote(user.id, String(existingNote.id), patch as never, db);
+        return { id: operation.id, entity: operation.entity, entityId: operation.entityId, serverId: String(existingNote.id) };
       }
       const created = insertNote(
         user.id,

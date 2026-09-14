@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { focusSessionStartSchema, focusSessionUpdateSchema, toDayKey } from '@jarvis/shared';
-import { requireUser } from '../http/auth-plugin.js';
+import { requireUser, userSettings } from '../http/auth-plugin.js';
 import { AppError, parseOrThrow } from '../lib/errors.js';
 import { incrementActivity } from '../repo/activity.js';
 import {
@@ -37,7 +37,10 @@ export async function registerFocusRoutes(app: FastifyInstance): Promise<void> {
       clientId: input.clientId ?? null,
     });
 
-    return reply.status(201).send({ session, dayKey });
+    // Return the mapped shape (camelCase, resolved task title) — the same one the
+    // list and patch endpoints return, so the client never sees a raw row.
+    const [mapped] = hydrateFocusSessions([session]);
+    return reply.status(201).send({ session: mapped ?? session, dayKey });
   });
 
   /** Finish (or sync) a session. Idempotent: replaying an offline finish is safe. */
@@ -58,7 +61,10 @@ export async function registerFocusRoutes(app: FastifyInstance): Promise<void> {
     if (!updated) throw AppError.notFound('That focus session no longer exists');
 
     const deltaMinutes = Math.round((updated.actual_seconds - existing.actualSeconds) / 60);
-    if (deltaMinutes !== 0 && updated.completed === 1) {
+    // Focus minutes come from the time actually spent, so a block stopped early
+    // still counts for what it was — the analytics never disagree with the list of
+    // sessions the user can see.
+    if (deltaMinutes !== 0 && updated.actual_seconds > 0) {
       incrementActivity(user.id, updated.day_key as never, { focusMinutes: deltaMinutes });
     }
 
@@ -79,7 +85,7 @@ export async function registerFocusRoutes(app: FastifyInstance): Promise<void> {
     const user = requireUser(request);
     const { id } = parseOrThrow(idParam, request.params);
     const existing = listFocusSessions(user.id, { limit: 500 }).find((s) => s.id === id);
-    if (existing && existing.completed && existing.actualSeconds > 0) {
+    if (existing && existing.actualSeconds > 0) {
       incrementActivity(user.id, existing.dayKey, { focusMinutes: -Math.round(existing.actualSeconds / 60) });
     }
     softDeleteFocusSession(user.id, id);

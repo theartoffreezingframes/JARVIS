@@ -130,7 +130,7 @@ export function memberStats(userId: string, today: DayKey, db: Db = getDb()): Me
   const focus = one<{ minutes: number; sessions: number }>(
     `SELECT COALESCE(SUM(actual_seconds), 0) / 60 AS minutes, COUNT(*) AS sessions
        FROM focus_sessions
-      WHERE user_id = ? AND deleted_at IS NULL AND completed = 1 AND day_key >= ?`,
+      WHERE user_id = ? AND deleted_at IS NULL AND actual_seconds > 0 AND day_key >= ?`,
     [userId, weekStart],
     db,
   );

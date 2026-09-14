@@ -137,10 +137,13 @@ export async function registerPlannerRoutes(app: FastifyInstance): Promise<void>
       (task) => task.status !== 'done' && task.status !== 'archived' && task.planDate !== day,
     );
 
+    // Only work still open consumes the day; finished blocks stay in the list
+    // below for context but must not push the plan over capacity.
+    const openPlanned = plannedTasks.filter((task) => task.status !== 'done' && task.status !== 'archived');
     const nowMinutes = day === today ? minutesSinceMidnight(Date.now(), user.tz_offset_minutes) : 0;
     const plan = buildDayPlan({
       dayKey: day,
-      tasks: plannedTasks.map(toPlannerInput),
+      tasks: openPlanned.map(toPlannerInput),
       nowMinutes,
       dayStartTime: settings.dayStartTime,
       dayEndTime: settings.dayEndTime,

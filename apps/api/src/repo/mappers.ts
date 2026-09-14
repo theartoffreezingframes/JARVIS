@@ -1,8 +1,10 @@
 import type {
   AppNotification,
+  DashboardLayoutId,
   DashboardWidgetId,
   FocusSession,
   Group,
+  HabitCompletion,
   Habit,
   Note,
   Project,
@@ -15,6 +17,7 @@ import type {
   GangParticipant,
   GroupMember,
 } from '@jarvis/shared';
+import { DASHBOARD_WIDGETS } from '@jarvis/shared';
 import type { DayKey } from '@jarvis/shared';
 import type {
   DailyReviewRow,
@@ -334,25 +337,72 @@ export function mapDailyReview(row: DailyReviewRow): DailyReview {
   };
 }
 
+/** Habit check-ins are exposed with the same camelCase shape as every other model. */
+export function mapHabitCompletion(row: HabitCompletionRow): HabitCompletion {
+  return {
+    id: row.id,
+    habitId: row.habit_id,
+    dayKey: row.day_key as DayKey,
+    count: row.count,
+    note: row.note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    seq: row.seq,
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Settings                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export const DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
-  'greeting',
-  'progress',
-  'quick_add',
-  'focus_cta',
-  'today_tasks',
-  'overdue',
-  'important',
-  'deadlines',
-  'habits',
-  'focus_stats',
-  'matrix_shortcut',
-  'gang_shortcut',
-  'summary',
-];
+export const DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [...DASHBOARD_WIDGETS];
+
+/**
+ * Dashboard arrangements offered in Settings → Customize. Each preset starts
+ * from the full widget list so nothing is lost when switching layouts.
+ */
+export const DASHBOARD_LAYOUTS: Record<DashboardLayoutId, DashboardWidgetId[]> = {
+  balanced: [...DASHBOARD_WIDGETS],
+  minimal: ['greeting', 'quick_add', 'progress', 'today_tasks', 'focus_cta'],
+  focus: [
+    'greeting',
+    'focus_cta',
+    'focus_stats',
+    'heatmap',
+    'today_tasks',
+    'progress',
+    'streaks',
+    'habits',
+    'quick_add',
+    'matrix_shortcut',
+    'gang_shortcut',
+  ],
+  planner: [
+    'greeting',
+    'quick_add',
+    'progress',
+    'today_tasks',
+    'overdue',
+    'important',
+    'deadlines',
+    'habits',
+    'streaks',
+    'matrix_shortcut',
+    'focus_cta',
+    'focus_stats',
+    'heatmap',
+    'gang_sessions',
+    'gang_shortcut',
+    'projects',
+    'summary',
+  ],
+};
+
+export function layoutWidgets(layout: DashboardLayoutId): UserSettings['dashboardWidgets'] {
+  const order = DASHBOARD_LAYOUTS[layout] ?? DASHBOARD_WIDGET_ORDER;
+  const rest = DASHBOARD_WIDGET_ORDER.filter((id) => !order.includes(id));
+  return [...order, ...rest].map((id) => ({ id, visible: order.includes(id) }));
+}
 
 export function defaultSettings(row: UserRow): UserSettings {
   return {
@@ -372,6 +422,7 @@ export function defaultSettings(row: UserRow): UserSettings {
     dailyPlanningReminder: '08:30',
     dailyReviewReminder: '21:00',
     dashboardWidgets: DASHBOARD_WIDGET_ORDER.map((id) => ({ id, visible: true })),
+    dashboardLayout: 'balanced',
     leaderboardEnabled: false,
     notifications: {
       taskReminder: true,
@@ -386,19 +437,129 @@ export function defaultSettings(row: UserRow): UserSettings {
       quietHoursStart: null,
       quietHoursEnd: null,
     },
+    appearance: {
+      preset: 'indigo',
+      density: 'comfortable',
+      radiusStyle: 'rounded',
+      animationLevel: 'full',
+      fontScale: 1,
+    },
+    taskDefaults: {
+      priority: 'medium',
+      estimateMinutes: null,
+      reminderLeadMinutes: null,
+      projectId: null,
+      dueToday: false,
+      classifyAtCreation: false,
+    },
+    taskDisplay: {
+      style: 'comfortable',
+      sort: 'due',
+      grouping: 'day',
+      fields: {
+        due: true,
+        priority: true,
+        project: true,
+        estimate: true,
+        tags: false,
+        subtasks: true,
+        description: false,
+      },
+    },
+    matrix: {
+      quadrantNames: {
+        do_now: 'Do Now',
+        schedule: 'Schedule',
+        delegate: 'Delegate',
+        eliminate: 'Eliminate',
+      },
+      quadrantDescriptions: {
+        do_now: 'Important and urgent — handle these first.',
+        schedule: 'Important, not urgent — the work that compounds. Book time for it.',
+        delegate: 'Urgent, not important — hand off, batch or automate.',
+        eliminate: 'Neither — question whether it needs doing at all.',
+      },
+      defaultClassification: 'inbox',
+      displayStyle: 'grid',
+      showHints: true,
+    },
+    focus: {
+      sound: false,
+      haptics: true,
+      countdownStyle: 'ring',
+      keepScreenAwake: false,
+      dailyTargetMinutes: 120,
+    },
+    calendar: {
+      defaultEventMinutes: 60,
+      workingHoursStart: '07:00',
+      workingHoursEnd: '22:00',
+      display: 'month',
+      showCompleted: false,
+      showHabits: true,
+      showFocusSessions: true,
+    },
+    habits: {
+      displayStyle: 'list',
+      showStreaks: true,
+      showHeatmap: true,
+    },
+    demoData: { enabled: false, loadedAt: null, projectIds: [], habitIds: [], noteIds: [] },
   };
+}
+
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> | T[K] : T[K] };
+
+/**
+ * Settings are a nested document; a patch must merge per section so changing
+ * the pomodoro length never wipes the notification choices.
+ */
+export function mergeSettings(current: UserSettings, patch: DeepPartial<UserSettings>): UserSettings {
+  const mergeGroup = <T extends object>(base: T, next: DeepPartial<T> | T | undefined): T => {
+    if (!next) return base;
+    const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+    for (const [key, value] of Object.entries(next as Record<string, unknown>)) {
+      if (value === undefined) continue;
+      const existing = out[key];
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        existing &&
+        typeof existing === 'object' &&
+        !Array.isArray(existing)
+      ) {
+        out[key] = mergeGroup(existing as object, value as object);
+      } else {
+        out[key] = value;
+      }
+    }
+    return out as T;
+  };
+
+  return mergeGroup(current, patch as DeepPartial<UserSettings>);
 }
 
 export function parseSettings(row: UserRow, settingsRow: SettingsRow | undefined): UserSettings {
   const base = defaultSettings(row);
   if (!settingsRow) return base;
   try {
-    const parsed = JSON.parse(settingsRow.data) as Partial<UserSettings>;
-    return {
-      ...base,
+    const parsed = JSON.parse(settingsRow.data) as DeepPartial<UserSettings>;
+    const merged = mergeSettings(base, {
       ...parsed,
+      // arrays are replaced wholesale, never merged element-wise
+      dashboardWidgets: normalizeWidgets(
+        parsed.dashboardWidgets as UserSettings['dashboardWidgets'] | undefined,
+        base.dashboardWidgets,
+      ),
+    });
+    return {
+      ...merged,
       notifications: { ...base.notifications, ...(parsed.notifications ?? {}) },
-      dashboardWidgets: normalizeWidgets(parsed.dashboardWidgets, base.dashboardWidgets),
+      dashboardWidgets: normalizeWidgets(
+        parsed.dashboardWidgets as UserSettings['dashboardWidgets'] | undefined,
+        base.dashboardWidgets,
+      ),
     };
   } catch {
     return base;
@@ -413,7 +574,7 @@ function normalizeWidgets(
   const known = new Set<string>(DASHBOARD_WIDGET_ORDER);
   const cleaned = value
     .filter((w) => w && typeof w.id === 'string' && known.has(w.id))
-    .map((w) => ({ id: w.id, visible: w.visible !== false }));
+    .map((w) => ({ id: w.id as DashboardWidgetId, visible: w.visible !== false }));
   const missing = fallback.filter((w) => !cleaned.some((c) => c.id === w.id));
   return [...cleaned, ...missing];
 }

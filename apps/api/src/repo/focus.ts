@@ -154,7 +154,7 @@ export function focusStats(
             COALESCE(SUM(actual_seconds), 0) / 60 AS minutes,
             COUNT(*) AS sessions
        FROM focus_sessions
-      WHERE user_id = ? AND deleted_at IS NULL AND completed = 1 AND day_key BETWEEN ? AND ?
+      WHERE user_id = ? AND deleted_at IS NULL AND actual_seconds > 0 AND day_key BETWEEN ? AND ?
       GROUP BY day_key ORDER BY day_key`,
     [userId, from, today],
     db,
@@ -180,7 +180,7 @@ export function focusStats(
 
   const totalRow = one<{ seconds: number; sessions: number; avg: number | null }>(
     `SELECT COALESCE(SUM(actual_seconds), 0) AS seconds, COUNT(*) AS sessions, AVG(actual_seconds) AS avg
-       FROM focus_sessions WHERE user_id = ? AND deleted_at IS NULL AND completed = 1`,
+       FROM focus_sessions WHERE user_id = ? AND deleted_at IS NULL AND actual_seconds > 0`,
     [userId],
     db,
   );
@@ -188,7 +188,7 @@ export function focusStats(
   const byProject = all<{ project_id: string | null; project_name: string | null; minutes: number }>(
     `SELECT f.project_id, p.name AS project_name, COALESCE(SUM(f.actual_seconds), 0) / 60 AS minutes
        FROM focus_sessions f LEFT JOIN projects p ON p.id = f.project_id
-      WHERE f.user_id = ? AND f.deleted_at IS NULL AND f.completed = 1
+      WHERE f.user_id = ? AND f.deleted_at IS NULL AND f.actual_seconds > 0
       GROUP BY f.project_id ORDER BY minutes DESC LIMIT 8`,
     [userId],
     db,
@@ -197,7 +197,7 @@ export function focusStats(
   const byTask = all<{ task_id: string; title: string; minutes: number; sessions: number }>(
     `SELECT f.task_id, t.title, COALESCE(SUM(f.actual_seconds), 0) / 60 AS minutes, COUNT(*) AS sessions
        FROM focus_sessions f JOIN tasks t ON t.id = f.task_id
-      WHERE f.user_id = ? AND f.deleted_at IS NULL AND f.completed = 1
+      WHERE f.user_id = ? AND f.deleted_at IS NULL AND f.actual_seconds > 0
       GROUP BY f.task_id ORDER BY minutes DESC LIMIT 8`,
     [userId],
     db,

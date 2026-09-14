@@ -125,7 +125,7 @@ export function recomputeActivityDay(
 
   const focus = one<{ seconds: number }>(
     `SELECT COALESCE(SUM(actual_seconds), 0) AS seconds FROM focus_sessions
-      WHERE user_id = ? AND day_key = ? AND deleted_at IS NULL AND completed = 1`,
+      WHERE user_id = ? AND day_key = ? AND deleted_at IS NULL AND actual_seconds > 0`,
     [userId, dayKey],
     db,
   );

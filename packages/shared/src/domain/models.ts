@@ -12,6 +12,7 @@ import type {
   GangStatus,
 } from './primitives';
 import type { DayKey } from './dates';
+import type { Quadrant } from './primitives';
 import type { RecurrenceRule } from './recurrence';
 
 /* -------------------------------------------------------------------------- */
@@ -55,24 +56,146 @@ export interface NotificationPreferences {
   quietHoursEnd: string | null;
 }
 
-export type DashboardWidgetId =
-  | 'greeting'
-  | 'progress'
-  | 'quick_add'
-  | 'focus_cta'
-  | 'today_tasks'
-  | 'overdue'
-  | 'important'
-  | 'deadlines'
-  | 'habits'
-  | 'focus_stats'
-  | 'matrix_shortcut'
-  | 'gang_shortcut'
-  | 'summary';
+export const DASHBOARD_WIDGETS = [
+  'greeting',
+  'progress',
+  'quick_add',
+  'focus_cta',
+  'today_tasks',
+  'overdue',
+  'important',
+  'deadlines',
+  'habits',
+  'streaks',
+  'heatmap',
+  'focus_stats',
+  'matrix_shortcut',
+  'gang_sessions',
+  'gang_shortcut',
+  'projects',
+  'summary',
+] as const;
+
+export type DashboardWidgetId = (typeof DASHBOARD_WIDGETS)[number];
+
+/** Widgets that show numbers rather than actionable content. */
+export const STATISTIC_WIDGETS: DashboardWidgetId[] = ['progress', 'focus_stats', 'streaks', 'heatmap', 'summary'];
 
 export interface DashboardWidget {
   id: DashboardWidgetId;
   visible: boolean;
+}
+
+/** Prebuilt dashboard arrangements the user can start from. */
+export const DASHBOARD_LAYOUTS = ['balanced', 'minimal', 'focus', 'planner'] as const;
+export type DashboardLayoutId = (typeof DASHBOARD_LAYOUTS)[number];
+
+export const THEME_PRESETS = ['indigo', 'slate', 'ocean', 'forest', 'sunset', 'mono'] as const;
+export type ThemePreset = (typeof THEME_PRESETS)[number];
+
+export const DENSITIES = ['comfortable', 'compact'] as const;
+export type Density = (typeof DENSITIES)[number];
+
+export const RADIUS_STYLES = ['rounded', 'soft'] as const;
+export type RadiusStyle = (typeof RADIUS_STYLES)[number];
+
+export const ANIMATION_LEVELS = ['full', 'reduced', 'none'] as const;
+export type AnimationLevel = (typeof ANIMATION_LEVELS)[number];
+
+export const TASK_SORT_ORDERS = ['manual', 'due', 'priority', 'created', 'title'] as const;
+export type TaskSortOrder = (typeof TASK_SORT_ORDERS)[number];
+
+export const TASK_GROUPINGS = ['none', 'day', 'project', 'priority', 'quadrant'] as const;
+export type TaskGrouping = (typeof TASK_GROUPINGS)[number];
+
+export const TASK_DISPLAY_STYLES = ['comfortable', 'compact'] as const;
+export type TaskDisplayStyle = (typeof TASK_DISPLAY_STYLES)[number];
+
+export const MATRIX_DISPLAY_STYLES = ['grid', 'list'] as const;
+export type MatrixDisplayStyle = (typeof MATRIX_DISPLAY_STYLES)[number];
+
+export const DEFAULT_CLASSIFICATIONS = ['inbox', 'do_now', 'schedule', 'delegate', 'eliminate'] as const;
+export type DefaultClassification = (typeof DEFAULT_CLASSIFICATIONS)[number];
+
+export const CALENDAR_DISPLAYS = ['month', 'week', 'day'] as const;
+export type CalendarDisplay = (typeof CALENDAR_DISPLAYS)[number];
+
+export const FOCUS_COUNTDOWN_STYLES = ['ring', 'bar', 'digits'] as const;
+export type FocusCountdownStyle = (typeof FOCUS_COUNTDOWN_STYLES)[number];
+
+export const HABIT_DISPLAY_STYLES = ['list', 'grid'] as const;
+export type HabitDisplayStyle = (typeof HABIT_DISPLAY_STYLES)[number];
+
+export interface TaskDefaultsSettings {
+  priority: Priority;
+  estimateMinutes: number | null;
+  reminderLeadMinutes: number | null;
+  projectId: string | null;
+  dueToday: boolean;
+  classifyAtCreation: boolean;
+}
+
+export interface TaskDisplaySettings {
+  style: TaskDisplayStyle;
+  sort: TaskSortOrder;
+  grouping: TaskGrouping;
+  fields: {
+    due: boolean;
+    priority: boolean;
+    project: boolean;
+    estimate: boolean;
+    tags: boolean;
+    subtasks: boolean;
+    description: boolean;
+  };
+}
+
+export interface MatrixSettings {
+  quadrantNames: Record<Quadrant, string>;
+  quadrantDescriptions: Record<Quadrant, string>;
+  defaultClassification: DefaultClassification;
+  displayStyle: MatrixDisplayStyle;
+  showHints: boolean;
+}
+
+export interface FocusSettings {
+  sound: boolean;
+  haptics: boolean;
+  countdownStyle: FocusCountdownStyle;
+  keepScreenAwake: boolean;
+  dailyTargetMinutes: number;
+}
+
+export interface CalendarSettings {
+  defaultEventMinutes: number;
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  display: CalendarDisplay;
+  showCompleted: boolean;
+  showHabits: boolean;
+  showFocusSessions: boolean;
+}
+
+export interface HabitSettings {
+  displayStyle: HabitDisplayStyle;
+  showStreaks: boolean;
+  showHeatmap: boolean;
+}
+
+export interface ThemeSettings {
+  preset: ThemePreset;
+  density: Density;
+  radiusStyle: RadiusStyle;
+  animationLevel: AnimationLevel;
+  fontScale: number;
+}
+
+export interface DemoDataState {
+  enabled: boolean;
+  loadedAt: number | null;
+  projectIds: string[];
+  habitIds: string[];
+  noteIds: string[];
 }
 
 export interface UserSettings {
@@ -92,8 +215,18 @@ export interface UserSettings {
   dailyPlanningReminder: string | null;
   dailyReviewReminder: string | null;
   dashboardWidgets: DashboardWidget[];
+  dashboardLayout: DashboardLayoutId;
   leaderboardEnabled: boolean;
   notifications: NotificationPreferences;
+  appearance: ThemeSettings;
+  taskDefaults: TaskDefaultsSettings;
+  taskDisplay: TaskDisplaySettings;
+  matrix: MatrixSettings;
+  focus: FocusSettings;
+  calendar: CalendarSettings;
+  habits: HabitSettings;
+  /** Bookkeeping for the optional sample workspace ("Try demo data"). */
+  demoData: DemoDataState;
 }
 
 /* -------------------------------------------------------------------------- */
