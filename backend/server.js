@@ -19,8 +19,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static frontend assets
+// Serve static frontend assets from /frontend and /public
+app.use(express.static(path.join(__dirname, '../frontend')));
 app.use(express.static(path.join(__dirname, '../public')));
+
+// Dedicated direct ZIP download endpoints
+app.get('/download', (req, res) => {
+  const zipPath = path.join(__dirname, '../OmniCampus-FullStack.zip');
+  res.download(zipPath, 'OmniCampus-FullStack.zip');
+});
+
+app.get('/OmniCampus-FullStack.zip', (req, res) => {
+  const zipPath = path.join(__dirname, '../OmniCampus-FullStack.zip');
+  res.download(zipPath, 'OmniCampus-FullStack.zip');
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
