@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniCampus — Hyper-Localized College Learning Ecosystem</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Main Styles -->
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- Top Campus Navigation -->
+  <header class="campus-header">
+    <div class="header-container">
+      <div class="brand-section" onclick="App.switchTab('dashboard')">
+        <div class="brand-logo-icon">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <div class="brand-text">
+          <h1>OmniCampus</h1>
+          <span class="brand-tag"><i class="fa-solid fa-satellite-dish"></i> Tech Campus Portal</span>
+        </div>
+      </div>
+
+      <!-- Main Navigation Tabs -->
+      <nav class="campus-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="courses">
+          <i class="fa-solid fa-book-bookmark"></i>
+          <span>Syllabus Courses</span>
+        </button>
+        <button class="nav-item" data-tab="arena">
+          <i class="fa-solid fa-laptop-code"></i>
+          <span>AI Explainer & Arena</span>
+        </button>
+        <button class="nav-item" data-tab="jobs">
+          <i class="fa-solid fa-briefcase"></i>
+          <span>Micro-Jobs</span>
+        </button>
+        <button class="nav-item" data-tab="leaderboard">
+          <i class="fa-solid fa-trophy"></i>
+          <span>Leaderboard</span>
+        </button>
+      </nav>
+
+      <!-- User Account & Wallet Actions -->
+      <div class="header-actions">
+        <a href="/OmniCampus-FullStack.zip" download="OmniCampus-FullStack.zip" class="btn btn-sm btn-secondary" style="border-color: rgba(6, 182, 212, 0.4); color: var(--accent-cyan);" title="Download Complete Full-Stack ZIP Package">
+          <i class="fa-solid fa-download"></i>
+          <span>ZIP</span>
+        </a>
+
+        <div class="coins-badge" id="walletBalance">
+          <i class="fa-solid fa-coins"></i>
+          <span id="userCoinsCount">1,650</span> Coins
+        </div>
+
+        <button class="profile-switcher-btn" id="profileSwitcherBtn" title="Switch Demo Profile / Role">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar" class="profile-avatar" id="currentUserAvatar">
+          <div class="profile-info">
+            <span class="profile-name" id="currentUserName">Alex Rivera</span>
+            <span class="profile-role-badge role-senior" id="currentUserRoleBadge">Senior Mentor</span>
+          </div>
+          <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem; color: var(--text-dim); margin-left: 0.25rem;"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- College Context Ribbon -->
+  <div class="campus-ribbon">
+    <div class="ribbon-content">
+      <div class="ribbon-item">
+        <i class="fa-solid fa-university" style="color: var(--primary);"></i>
+        <span>University Portal: <strong>Silicon Tech Institute (Fall 2026 Term)</strong></span>
+      </div>
+      <div class="ribbon-item">
+        <span class="ribbon-pill"><i class="fa-solid fa-circle-dot" style="font-size: 0.55rem; color: #34d399;"></i> 24 Mentors Online</span>
+        <span>• Active Escrow: <strong>4,200 Coins</strong></span>
+        <span>• Role Mode: <strong id="ribbonRoleLabel" style="color: #fbbf24;">Senior (Course & Job Creator)</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    
+    <!-- ==========================================
+         TAB 1: DASHBOARD
+         ========================================== -->
+    <section id="tab-dashboard" class="tab-pane active">
+      <!-- Hero Banner -->
+      <div class="hero-banner">
+        <div class="hero-content">
+          <span class="hero-badge"><i class="fa-solid fa-sparkles"></i> Welcome to OmniCampus</span>
+          <h2 class="hero-title" id="dashboardWelcomeTitle">Accelerate your university learning with peer mentors.</h2>
+          <p class="hero-subtitle">
+            Study official syllabus-mapped lecture courses, debug code with automated AI explanation, earn campus bounties through micro-gigs, and climb your department's coding arena leaderboard.
+          </p>
+          <div class="hero-buttons">
+            <button class="btn btn-primary" onclick="App.switchTab('courses')">
+              <i class="fa-solid fa-play"></i> Explore Syllabus Courses
+            </button>
+            <button class="btn btn-accent" onclick="App.switchTab('arena')">
+              <i class="fa-solid fa-microchip"></i> Open AI Code Explainer
+            </button>
+            <button class="btn btn-secondary" onclick="App.switchTab('jobs')">
+              <i class="fa-solid fa-hand-holding-dollar"></i> Browse Campus Gigs
+            </button>
+            <a href="/OmniCampus-FullStack.zip" download="OmniCampus-FullStack.zip" class="btn btn-secondary" style="border-color: rgba(6, 182, 212, 0.4); color: var(--accent-cyan);">
+              <i class="fa-solid fa-file-zipper"></i> Download Full-Stack ZIP
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon indigo">
+            <i class="fa-solid fa-book-open"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statEnrolledCount">2</span>
+            <span class="stat-label">Enrolled Syllabus Courses</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon cyan">
+            <i class="fa-solid fa-code-merge"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statSolvedCount">12</span>
+            <span class="stat-label">Arena Problems Solved</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon emerald">
+            <i class="fa-solid fa-ranking-star"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statRank">#3</span>
+            <span class="stat-label">Campus Ranking</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon amber">
+            <i class="fa-solid fa-coins"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statCoinsCount">1,650</span>
+            <span class="stat-label">Campus Coins Balance</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hub Split: Announcements + Senior Mentors -->
+      <div class="hub-split-grid">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3 class="panel-title"><i class="fa-solid fa-bullhorn" style="color: var(--primary);"></i> Campus Notice Board & Syllabus Milestones</h3>
+            <span style="font-size: 0.775rem; color: var(--text-dim);">Updated today</span>
+          </div>
+          <div class="notice-list">
+            <div class="notice-item">
+              <div class="notice-bullet blue"></div>
+              <div class="notice-content">
+                <h4>CS-301 Midterm Syllabus Walkthrough Released</h4>
+                <p>Senior Mentor Alex Rivera added 2 new video breakdown modules for Binary Search Trees and DP 0/1 Knapsack.</p>
+                <div class="notice-meta"><i class="fa-regular fa-clock"></i> 2 hours ago • CSE Dept</div>
+              </div>
+            </div>
+
+            <div class="notice-item">
+              <div class="notice-bullet purple"></div>
+              <div class="notice-content">
+                <h4>OmniHack Fall 2026: Registration Live</h4>
+                <p>Campus Hackathon with 10,000 Coin prize pool. Team formation open on the Micro-Jobs board.</p>
+                <div class="notice-meta"><i class="fa-regular fa-clock"></i> 5 hours ago • Dean's Office</div>
+              </div>
+            </div>
+
+            <div class="notice-item">
+              <div class="notice-bullet green"></div>
+              <div class="notice-content">
+                <h4>AI Code Explainer v2.4 Enabled</h4>
+                <p>Now featuring Big-O Space & Time automated proofs and inline retention quizzes for lab viva exams.</p>
+                <div class="notice-meta"><i class="fa-regular fa-clock"></i> Yesterday • OmniCampus Core</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3 class="panel-title"><i class="fa-solid fa-user-astronaut" style="color: var(--accent-cyan);"></i> Top Peer Mentors</h3>
+            <button class="btn btn-sm btn-secondary" onclick="App.openRoleModal()">Switch Role</button>
+          </div>
+          <div class="mentor-list" id="mentorsListContainer">
+            <!-- Dynamic Mentors injected here -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: SYLLABUS COURSES
+         ========================================== -->
+    <section id="tab-courses" class="tab-pane">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h2><i class="fa-solid fa-book-bookmark" style="color: var(--primary);"></i> Syllabus-Mapped Video Courses</h2>
+          <p>Curated specifically according to university curriculum units, exam blueprints, and lab sessions.</p>
+        </div>
+        <div class="header-action-group">
+          <button class="btn btn-primary" id="btnOpenCreateCourseModal">
+            <i class="fa-solid fa-plus"></i> Publish New Course
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters & Search -->
+      <div class="filter-bar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="courseSearchInput" class="search-input" placeholder="Search courses by code, title, topic, or instructor...">
+        </div>
+        <div class="filter-group">
+          <select id="courseDeptFilter" class="filter-select">
+            <option value="all">All Departments</option>
+            <option value="Computer Science">Computer Science & Eng</option>
+            <option value="Information Technology">Information Technology</option>
+            <option value="Electronics">Electronics & Comm</option>
+          </select>
+          <select id="courseLevelFilter" class="filter-select">
+            <option value="all">All Levels</option>
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Courses Grid -->
+      <div class="courses-grid" id="coursesGridContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 3: AI CODE EXPLAINER & ARENA
+         ========================================== -->
+    <section id="tab-arena" class="tab-pane">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h2><i class="fa-solid fa-laptop-code" style="color: var(--accent-cyan);"></i> AI Code Explainer & Ranking Arena</h2>
+          <p>Write or paste your code. Get deep algorithmic analysis, Big-O metrics, edge-case audit, and submit to earn rank points.</p>
+        </div>
+        <div class="header-action-group">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <label style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-list-check"></i> Challenge:</label>
+            <select id="challengeSelector" class="filter-select" style="min-width: 220px;">
+              <!-- Loaded dynamically -->
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="arena-layout">
+        <!-- Left: Code Editor & Console -->
+        <div class="editor-panel">
+          <div class="editor-toolbar">
+            <div class="editor-controls">
+              <select id="codeLanguageSelect" class="filter-select" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                <option value="javascript">JavaScript (ES6)</option>
+                <option value="python">Python 3</option>
+                <option value="cpp">C++ (Standard)</option>
+                <option value="java">Java 17</option>
+              </select>
+
+              <select id="codeTemplateSelect" class="filter-select" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                <option value="twoSum">Preset: Two Sum (Hash Map)</option>
+                <option value="courseSchedule">Preset: Course Schedule (Graph Cycle)</option>
+                <option value="lruCache">Preset: LRU Cache</option>
+                <option value="quadratic">Preset: Nested Loops O(N²)</option>
+                <option value="custom">Blank Scratchpad</option>
+              </select>
+            </div>
+
+            <div class="editor-controls">
+              <button class="btn btn-sm btn-secondary" id="btnCopyCode" title="Copy code">
+                <i class="fa-regular fa-copy"></i> Copy
+              </button>
+              <button class="btn btn-sm btn-secondary" id="btnResetCode" title="Reset snippet">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+              </button>
+              <button class="btn btn-sm btn-accent" id="btnRunCode">
+                <i class="fa-solid fa-play"></i> Run Code
+              </button>
+              <button class="btn btn-sm btn-primary" id="btnExplainCode">
+                <i class="fa-solid fa-brain"></i> Explain with AI
+              </button>
+            </div>
+          </div>
+
+          <div class="code-container">
+            <div class="line-numbers" id="editorLineNumbers">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12</div>
+            <textarea id="codeEditorInput" class="code-textarea" spellcheck="false" placeholder="Write or paste your code snippet here..."></textarea>
+          </div>
+
+          <!-- Console Terminal Output -->
+          <div class="console-panel">
+            <div class="console-header">
+              <span><i class="fa-solid fa-terminal"></i> Sandbox Output & Test Runner</span>
+              <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <span id="runDurationBadge" style="font-size: 0.75rem; color: var(--accent-emerald);"></span>
+                <button class="btn btn-sm btn-success" id="btnSubmitChallenge">
+                  <i class="fa-solid fa-cloud-arrow-up"></i> Submit Solution
+                </button>
+              </div>
+            </div>
+            <div class="console-output" id="consoleOutput">Ready. Click "Run Code", "Explain with AI", or "Submit Solution" to test against campus test cases.</div>
+          </div>
+        </div>
+
+        <!-- Right: AI Explainer Insights -->
+        <div class="ai-results-panel">
+          <div class="ai-card">
+            <div class="ai-card-header">
+              <div class="ai-badge">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Explainer Intelligence
+              </div>
+              <span id="analysisStatusLabel" style="font-size: 0.75rem; color: var(--text-dim);">Live Ready</span>
+            </div>
+
+            <!-- Big-O Metrics -->
+            <div class="complexity-grid">
+              <div class="complexity-card time">
+                <span class="complexity-type">Time Complexity</span>
+                <div class="complexity-value" id="aiTimeValue">O(n)</div>
+                <div class="complexity-sub" id="aiTimeDesc">Linear iteration over input elements.</div>
+              </div>
+              <div class="complexity-card space">
+                <span class="complexity-type">Space Complexity</span>
+                <div class="complexity-value" id="aiSpaceValue">O(n)</div>
+                <div class="complexity-sub" id="aiSpaceDesc">Auxiliary hash map storage.</div>
+              </div>
+            </div>
+
+            <!-- Algorithmic Step-by-Step Breakdown -->
+            <h4 style="font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">
+              <i class="fa-solid fa-list-ol" style="color: var(--primary);"></i> Execution Walkthrough
+            </h4>
+            <div class="breakdown-list" id="aiBreakdownContainer">
+              <div class="breakdown-item">
+                <span class="breakdown-line-tag">Line 2</span>
+                <span class="breakdown-code">const map = new Map();</span>
+                <p class="breakdown-desc">Initializes hash table providing O(1) expected time key-value lookups.</p>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-line-tag">Line 3</span>
+                <span class="breakdown-code">for (let i = 0; i &lt; credits.length; i++)</span>
+                <p class="breakdown-desc">Iterates sequentially across the list. Computes the mathematical complement for each entry.</p>
+              </div>
+            </div>
+
+            <!-- Edge Cases & Recommendations -->
+            <div style="margin-top: 1.25rem;">
+              <h4 style="font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">
+                <i class="fa-solid fa-shield-halved" style="color: var(--accent-amber);"></i> Edge Cases & Exam Tips
+              </h4>
+              <ul id="aiTipsContainer" style="padding-left: 1.2rem; font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.4rem;">
+                <li>Ensure non-empty input array guard.</li>
+                <li>Watch out for duplicate course credit keys in hash structures.</li>
+              </ul>
+            </div>
+
+            <!-- Interactive Retention Quiz -->
+            <div class="quiz-box" id="aiQuizContainer">
+              <div class="quiz-question" id="quizQuestionText">
+                💡 Quiz: Why is a single-pass Hash Map preferred over nested loops for credit pairing?
+              </div>
+              <div class="quiz-options" id="quizOptionsContainer">
+                <!-- Dynamically injected -->
+              </div>
+              <div class="quiz-feedback" id="quizFeedback"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 4: CAMPUS MICRO-JOBS
+         ========================================== -->
+    <section id="tab-jobs" class="tab-pane">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h2><i class="fa-solid fa-briefcase" style="color: var(--accent-amber);"></i> Campus Micro-Jobs & Peer Gigs</h2>
+          <p>Exchange skills for Campus Coins. Help peers with lab reports, tutoring, UI design, and development tasks.</p>
+        </div>
+        <div class="header-action-group">
+          <button class="btn btn-primary" id="btnOpenPostJobModal">
+            <i class="fa-solid fa-plus"></i> Post Micro-Task
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters & Search -->
+      <div class="filter-bar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="jobSearchInput" class="search-input" placeholder="Search gigs by title, skill, or student name...">
+        </div>
+        <div class="filter-group">
+          <select id="jobCategoryFilter" class="filter-select">
+            <option value="all">All Categories</option>
+            <option value="Development">Development</option>
+            <option value="Tutoring">Tutoring</option>
+            <option value="Research">Research & Papers</option>
+            <option value="Design">Design & Media</option>
+          </select>
+          <select id="jobStatusFilter" class="filter-select">
+            <option value="all">All Statuses</option>
+            <option value="open">Open (Accepting Proposals)</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Jobs Grid -->
+      <div class="jobs-grid" id="jobsGridContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 5: LEADERBOARD ARENA
+         ========================================== -->
+    <section id="tab-leaderboard" class="tab-pane">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h2><i class="fa-solid fa-trophy" style="color: #fbbf24;"></i> Campus Coding & Reputation Arena</h2>
+          <p>Live rankings across departments, year batches, and peer tutor contributions.</p>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="leaderboardSearchInput" class="search-input" placeholder="Filter ranking by student or mentor name...">
+        </div>
+        <div class="filter-group">
+          <select id="leaderboardDeptFilter" class="filter-select">
+            <option value="all">All Departments</option>
+            <option value="Computer Science">Computer Science & Eng</option>
+            <option value="Information Technology">Information Technology</option>
+            <option value="Electronics">Electronics & Comm</option>
+          </select>
+          <select id="leaderboardYearFilter" class="filter-select">
+            <option value="all">All Batches</option>
+            <option value="1st Year">1st Year (Freshmen)</option>
+            <option value="2nd Year">2nd Year (Sophomores)</option>
+            <option value="3rd Year">3rd Year (Juniors)</option>
+            <option value="4th Year">4th Year (Seniors)</option>
+          </select>
+          <select id="leaderboardRoleFilter" class="filter-select">
+            <option value="all">All Roles</option>
+            <option value="Senior">Senior Mentors</option>
+            <option value="Junior">Junior Students</option>
+            <option value="Admin">Faculty & Admins</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Table Card -->
+      <div class="leaderboard-table-card">
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th style="width: 80px; text-align: center;">Rank</th>
+              <th>Student / Mentor</th>
+              <th>Department & Year</th>
+              <th>Role</th>
+              <th>Challenges Solved</th>
+              <th>Reputation</th>
+              <th>Rank Points</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardTableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==========================================
+       MODAL 1: Course Details & Syllabus Player
+       ========================================== -->
+  <div class="modal-backdrop" id="courseDetailModal">
+    <div class="modal-dialog wide">
+      <div class="modal-header">
+        <div class="modal-title" id="courseModalTitle">
+          <i class="fa-solid fa-book-open" style="color: var(--primary);"></i>
+          <span>Course Title</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeModal('courseDetailModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="courseModalBody">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="modal-footer" id="courseModalFooter">
+        <button class="btn btn-secondary" onclick="App.closeModal('courseDetailModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 2: Create Course (Seniors & Admins)
+       ========================================== -->
+  <div class="modal-backdrop" id="createCourseModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i>
+          <span>Publish Syllabus-Mapped Course</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeModal('createCourseModal')">&times;</button>
+      </div>
+      <form id="createCourseForm">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Course Code *</label>
+              <input type="text" name="code" class="form-control" placeholder="e.g. CS-404" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Department *</label>
+              <select name="department" class="form-control" required>
+                <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Electronics & Communication">Electronics & Communication</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Course Title *</label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Distributed Cloud Systems & Microservices" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Semester Mapping *</label>
+              <input type="text" name="semester" class="form-control" placeholder="e.g. Semester 6 Core" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Difficulty Level</label>
+              <select name="level" class="form-control">
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate" selected>Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Course Description & Exam Coverage *</label>
+            <textarea name="description" class="form-control" placeholder="Describe the syllabus chapters, laboratory exercises, and exam preparation tips..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Video Lecture Embed / Preview URL</label>
+            <input type="url" name="video_url" class="form-control" placeholder="https://www.youtube.com/embed/aircAruvnKk">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="App.closeModal('createCourseModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-cloud-arrow-up"></i> Publish Course</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 3: Apply for Micro-Job
+       ========================================== -->
+  <div class="modal-backdrop" id="applyJobModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-paper-plane" style="color: var(--accent-amber);"></i>
+          <span>Submit Micro-Task Proposal</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeModal('applyJobModal')">&times;</button>
+      </div>
+      <form id="applyJobForm">
+        <input type="hidden" name="jobId" id="applyJobId">
+        <div class="modal-body">
+          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+            <h4 id="applyJobTitle" style="font-size: 0.95rem; color: #fff; margin-bottom: 0.25rem;">Task Title</h4>
+            <div style="font-size: 0.8rem; color: #fbbf24;" id="applyJobBounty"><i class="fa-solid fa-coins"></i> 500 Campus Coins Escrow</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Your Pitch & Delivery Plan *</label>
+            <textarea name="proposal" class="form-control" rows="4" placeholder="Briefly describe your experience, how you will solve this task, and your expected turnaround time (e.g., within 2 days)..." required></textarea>
+          </div>
+
+          <div style="font-size: 0.775rem; color: var(--text-dim);">
+            <i class="fa-solid fa-shield-halved"></i> Escrow Guarantee: Payment is released automatically to your wallet upon task acceptance by the poster.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="App.closeModal('applyJobModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Send Proposal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 4: Post Micro-Job
+       ========================================== -->
+  <div class="modal-backdrop" id="postJobModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-bullhorn" style="color: var(--accent-amber);"></i>
+          <span>Post Campus Micro-Task</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeModal('postJobModal')">&times;</button>
+      </div>
+      <form id="postJobForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Task Title *</label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Build interactive 3D viewer for RoboClub website" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Category *</label>
+              <select name="category" class="form-control" required>
+                <option value="Development">Development (Web, Mobile, AI)</option>
+                <option value="Tutoring">Peer Tutoring & Midterm Prep</option>
+                <option value="Research">Research Papers & LaTeX</option>
+                <option value="Design">UI/UX & Graphics</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bounty (Campus Coins) *</label>
+              <input type="number" name="bounty_coins" class="form-control" min="50" max="2500" value="350" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Estimated Deadline</label>
+            <input type="text" name="deadline" class="form-control" placeholder="e.g. In 3 days / Before Friday midnight" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Task Requirements & Deliverables *</label>
+            <textarea name="description" class="form-control" placeholder="Detail the expected work, tools to be used, and criteria for acceptance..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="App.closeModal('postJobModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-lock"></i> Escrow Bounty & Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 5: User & Role Switcher
+       ========================================== -->
+  <div class="modal-backdrop" id="roleModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-users-gear" style="color: var(--primary);"></i>
+          <span>Switch Campus Profile & Role</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeModal('roleModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Select a persona below to experience OmniCampus from the viewpoint of a <strong>Senior Peer Mentor</strong>, <strong>Junior Student</strong>, or <strong>College Admin</strong>:
+        </p>
+        <div class="mentor-list" id="demoUsersList">
+          <!-- Populated by JS -->
+        </div>
+
+        <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle);">
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: #fff;">Or Register a New Campus Member</h4>
+          <form id="registerUserForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Maya Patel" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Role</label>
+                <select name="role" class="form-control" required>
+                  <option value="Junior">Junior (Student)</option>
+                  <option value="Senior">Senior (Mentor / Lead)</option>
+                  <option value="Admin">Admin (Dean / Faculty)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Campus Email</label>
+                <input type="email" name="email" class="form-control" placeholder="maya.patel@campus.edu" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Department</label>
+                <input type="text" name="department" class="form-control" placeholder="Computer Science" required>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%;">
+              <i class="fa-solid fa-user-plus"></i> Create & Switch to Account
+            </button>
+          </form>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="App.closeModal('roleModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Footer -->
+  <footer class="campus-footer">
+    <div class="footer-links">
+      <a href="#" class="footer-link" onclick="App.switchTab('dashboard'); return false;">Dashboard</a>
+      <a href="#" class="footer-link" onclick="App.switchTab('courses'); return false;">Curriculum Courses</a>
+      <a href="#" class="footer-link" onclick="App.switchTab('arena'); return false;">AI Code Explainer</a>
+      <a href="#" class="footer-link" onclick="App.switchTab('jobs'); return false;">Micro-Gigs</a>
+      <a href="#" class="footer-link" onclick="App.switchTab('leaderboard'); return false;">Leaderboard</a>
+    </div>
+    <p>© 2026 OmniCampus Inc. Empowering college peer learning, syllabus mastery, and micro-task collaboration.</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

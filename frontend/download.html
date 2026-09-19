@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Download OmniCampus Full-Stack ZIP</title>
+  <style>
+    body {
+      background: #0a0e17;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+    .box {
+      background: #121826;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 2.5rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      max-width: 500px;
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 1.5rem;
+      background: #6366f1;
+      color: #fff;
+      padding: 0.85rem 1.75rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .btn:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>🎓 OmniCampus Full-Stack</h1>
+    <p>Your complete full-stack project ZIP is ready for download.</p>
+    <a id="dlBtn" class="btn" href="/OmniCampus-FullStack.zip" download="OmniCampus-FullStack.zip">⬇ Download OmniCampus-FullStack.zip</a>
+  </div>
+  <script>
+    // Auto-trigger download
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('dlBtn').click();
+    });
+  </script>
+</body>
+</html>
